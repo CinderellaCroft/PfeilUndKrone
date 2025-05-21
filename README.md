@@ -5,11 +5,11 @@ Teilnehmer:
 
 Dipl. VK Tobias Hiep
 
-Johann Rusch
-Alexander Hallmann
-Nils Ulrich
-Nico Lenczewski
-Steen Nissen
-Malte Schneider
-Finja Moser
-Nils Schippmann
+Johann Rusch <br/>
+Alexander Hallmann <br/>
+Nils Ulrich <br/>
+Nico Lenczewski <br/>
+Steen Nissen <br/>
+Malte Schneider <br/>
+Finja Moser <br/>
+Nils Schippmann <br/>
