@@ -1,6 +1,8 @@
 Gruppenprojekt:
 3D-Spiel Towerdefense König gegen Räuber 
 
+Unity Version: 6000.0.49f1
+
 Teilnehmer:
 
 Dipl. VK Tobias Hiep
