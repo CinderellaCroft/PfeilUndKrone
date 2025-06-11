@@ -12,15 +12,48 @@ using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this 
 class ClientMessage
 {
     public string type;
-    public string payload; 
+    public string payload;
 }
 
-/// <summary>
-/// This class is used to deserialize the outer layer of messages RECEIVED FROM the server.
-/// The payload is a JSON string that we will deserialize separately.
-/// </summary>
+// A simple class to determine the message type before full deserialization
 [Serializable]
-public class ServerMessage
+public class ServerMessageType
+{
+    public string type;
+}
+
+// Specific message classes for each type from the server
+[Serializable]
+public class ServerMessageMatchCreated
+{
+    public string type;
+    public MatchCreatedPayload payload;
+}
+
+[Serializable]
+public class ServerMessageResourceUpdate
+{
+    public string type;
+    public ResourcePayload payload;
+}
+
+[Serializable]
+public class ServerMessageAmbushApproved
+{
+    public string type;
+    public AmbushEdge payload;
+}
+
+[Serializable]
+public class ServerMessageExecuteRound
+{
+    public string type;
+    public ExecuteRoundPayload payload;
+}
+
+// For simple string payloads like "info" and "error"
+[Serializable]
+public class ServerMessageStringPayload
 {
     public string type;
     public string payload;
@@ -33,6 +66,28 @@ public class ServerMessage
 public class PathApprovedPayload
 {
     public List<Vector3> path;
+}
+
+[Serializable]
+public class MatchCreatedPayload
+{
+    public string role;
+    // public MapData map; // Add later
+}
+
+[Serializable]
+public class ResourcePayload
+{
+    public int gold;
+    public int wood;
+    public int grain;
+}
+
+[Serializable]
+public class ExecuteRoundPayload
+{
+    public string kingPaths; // Keep as JSON strings for simplicity
+    public string banditAmbushes;
 }
 
 
@@ -58,7 +113,7 @@ public class NetworkManager : MonoBehaviour
             return _instance;
         }
     }
-    
+
     private WebSocket websocket;
 
     void Awake()
@@ -81,17 +136,17 @@ public class NetworkManager : MonoBehaviour
         // Connect to the port specified in your server.js (8080)
         websocket = new WebSocket("ws://localhost:8080");
 
-        websocket.OnOpen += () => 
+        websocket.OnOpen += () =>
         {
             Debug.Log("Connection to server opened!");
         };
 
-        websocket.OnError += (e) => 
+        websocket.OnError += (e) =>
         {
             Debug.LogError("Connection Error: " + e);
         };
 
-        websocket.OnClose += (e) => 
+        websocket.OnClose += (e) =>
         {
             Debug.Log("Connection closed: " + e);
         };
@@ -102,33 +157,84 @@ public class NetworkManager : MonoBehaviour
             var messageString = System.Text.Encoding.UTF8.GetString(bytes);
             Debug.Log("Message received from server: " + messageString);
 
-            // First, deserialize the outer message to determine its type
-            ServerMessage message = JsonUtility.FromJson<ServerMessage>(messageString);
+            // First, deserialize only to find the message type
+            var typeFinder = JsonUtility.FromJson<ServerMessageType>(messageString);
 
-            // Route the message based on its type
-            switch (message.type)
+            // We must use the Main Thread Dispatcher for ALL Unity API calls
+            UnityMainThreadDispatcher.Instance().Enqueue(() =>
             {
-                case "path_approved":
-                    // Now, deserialize the inner payload string into our specific data class
-                    PathApprovedPayload pathPayload = JsonUtility.FromJson<PathApprovedPayload>(message.payload);
-                    
-                    // We must use the Main Thread Dispatcher to interact with GameObjects
-                    // from a network thread to avoid errors.
-                    UnityMainThreadDispatcher.Instance().Enqueue(() => 
-                    {
-                        CornerPathManager.Instance.ExecuteServerPath(pathPayload.path);
-                    });
-                    break;
-                
-                // You can add more cases here for future server events
-                // case "game_state_update":
-                //     ...
-                //     break;
-                    
-                default:
-                    Debug.LogWarning("Received message of unknown type: " + message.type);
-                    break;
-            }
+                // Now, use the type to deserialize to the correct, fully-structured class
+                switch (typeFinder.type)
+                {
+                    case "match_created":
+                        var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
+                        Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
+                        GameManager.Instance.SetRole(matchMessage.payload.role);
+                        break;
+
+                    case "match_found":
+                        Debug.Log("Match found! Waiting for other players...");
+                        UIManager.Instance.UpdateInfoText("Match found! Waiting for other players...");
+                        break;
+
+                    case "king_turn_start":
+                        GameManager.Instance.StartKingTurn();
+                        break;
+
+                    case "bandit_turn_start":
+                        GameManager.Instance.StartBanditTurn();
+                        break;
+
+                    case "ambush_approved":
+                        var ambushMessage = JsonUtility.FromJson<ServerMessageAmbushApproved>(messageString);
+                        AmbushManager.Instance.ConfirmAmbushPlacement(ambushMessage.payload);
+                        break;
+
+                    case "ambush_denied":
+                        Debug.LogWarning("Server denied ambush purchase.");
+                        UIManager.Instance.UpdateInfoText("Ambush denied: Not enough resources!");
+                        break;
+
+                    case "resource_update":
+                        var resourceMessage = JsonUtility.FromJson<ServerMessageResourceUpdate>(messageString);
+                        UIManager.Instance.UpdateResourcesText(resourceMessage.payload.gold, resourceMessage.payload.wood, resourceMessage.payload.grain);
+                        break;
+
+                    case "execute_round":
+                        var roundMessage = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString);
+                        GameManager.Instance.StartExecutionPhase(
+                            JsonUtility.ToJson(roundMessage.payload.kingPaths),
+                            JsonUtility.ToJson(roundMessage.payload.banditAmbushes)
+                        );
+                        break;
+
+                    case "new_round":
+                        // Assuming "new_round" also sends a ResourcePayload
+                        var newRoundMessage = JsonUtility.FromJson<ServerMessageResourceUpdate>(messageString);
+                        UIManager.Instance.UpdateResourcesText(newRoundMessage.payload.gold, newRoundMessage.payload.wood, newRoundMessage.payload.grain);
+                        UIManager.Instance.UpdateInfoText("New round starting...");
+                        break;
+
+                    case "info":
+                    case "error":
+                        // This handles cases where the payload is just a simple string
+                        var stringMessage = JsonUtility.FromJson<ServerMessageStringPayload>(messageString);
+                        if (typeFinder.type == "info")
+                        {
+                            UIManager.Instance.UpdateInfoText(stringMessage.payload);
+                        }
+                        else
+                        {
+                            Debug.LogError("Server Error: " + stringMessage.payload);
+                            UIManager.Instance.UpdateInfoText("SERVER ERROR: " + stringMessage.payload);
+                        }
+                        break;
+
+                    default:
+                        Debug.LogWarning("Received message of unknown type: " + typeFinder.type);
+                        break;
+                }
+            });
         };
 
         Debug.Log("Attempting to connect to server...");
@@ -139,12 +245,12 @@ public class NetworkManager : MonoBehaviour
     {
         // The NativeWebSocket library requires this to be called each frame
         // to process message queues on the main thread.
-        #if !UNITY_WEBGL || UNITY_EDITOR
+#if !UNITY_WEBGL || UNITY_EDITOR
         if (websocket != null)
         {
             websocket.DispatchMessageQueue();
         }
-        #endif
+#endif
     }
 
     /// <summary>
@@ -166,7 +272,7 @@ public class NetworkManager : MonoBehaviour
 
         // 2. Create the outer message wrapper, placing the JSON string into the payload field.
         ClientMessage message = new ClientMessage { type = type, payload = payloadJson };
-        
+
         // 3. Serialize the final wrapper object into the final JSON string to be sent.
         string finalJson = JsonUtility.ToJson(message);
 
@@ -179,7 +285,7 @@ public class NetworkManager : MonoBehaviour
         // Ensure the connection is closed when the game exits.
         if (websocket != null && websocket.State == WebSocketState.Open)
         {
-           await websocket.Close();
+            await websocket.Close();
         }
     }
 }

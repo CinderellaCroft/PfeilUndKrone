@@ -7,9 +7,23 @@ public class PathData
     public List<Vector3> path;
 }
 
+[System.Serializable]
+public class WorkerPathsPayload
+{
+    public List<PathData> paths;
+}
+
 public class CornerPathManager : MonoBehaviour
 {
-    public static CornerPathManager Instance;
+    private static CornerPathManager _instance;
+    public static CornerPathManager Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = FindFirstObjectByType<CornerPathManager>();
+            return _instance;
+        }
+    }
 
     [Header("Worker move")]
     public GameObject workerPrefab;
@@ -21,10 +35,19 @@ public class CornerPathManager : MonoBehaviour
     private bool isMoving = false;
     private int currentStep = 0;
     private float speed = 1f;
+    private bool _isSelectionEnabled = false;
 
     void Awake()
     {
-        Instance = this;
+        if (_instance == null)
+        {
+            _instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else if (_instance != this)
+        {
+            Destroy(gameObject);
+        }
     }
 
     void Start()
@@ -33,7 +56,7 @@ public class CornerPathManager : MonoBehaviour
         {
             playerObject = Instantiate(workerPrefab);
             playerObject.name = "Worker";
-            playerObject.SetActive(false); 
+            playerObject.SetActive(false);
         }
         else
         {
@@ -41,9 +64,25 @@ public class CornerPathManager : MonoBehaviour
         }
     }
 
+    public void EnablePathSelection()
+    {
+        _isSelectionEnabled = true;
+        locallySelectedPath.Clear();
+        serverConfirmedPath.Clear();
+        selectionComplete = false;
+        isMoving = false;
+        if (playerObject) playerObject.SetActive(false);
+        Debug.Log("Path selection enabled.");
+    }
+
+    public void DisablePathSelection()
+    {
+        _isSelectionEnabled = false;
+    }
+
     public void OnCornerClicked(CornerNode node)
     {
-        if (selectionComplete || isMoving) return;
+        if (!_isSelectionEnabled || selectionComplete || isMoving) return;
         if (locallySelectedPath.Count == 0)
         {
             locallySelectedPath.Add(node);
@@ -63,25 +102,37 @@ public class CornerPathManager : MonoBehaviour
         if (HexGridGenerator.Instance.centralCorners.Contains(node))
         {
             selectionComplete = true;
-            SubmitPathToServer();
-            return;
+            // The Done button now handles submission. This part is less critical.
+            // You could have it auto-submit or wait for the button.
+            // For now, let's just log it.
+            Debug.Log("Path reached center. Click 'Done' to submit.");
         }
         validNext.Clear();
         foreach (var neigh in node.neighbors)
             if (!locallySelectedPath.Contains(neigh))
                 validNext.Add(neigh);
-    }  
-    private void SubmitPathToServer()
+    }
+
+    public void SubmitPathToServer()
     {
-        PathData dataToSend = new PathData();
-        dataToSend.path = new List<Vector3>();
+        if (!_isSelectionEnabled) return;
+
+        PathData singlePath = new PathData
+        {
+            path = new List<Vector3>()
+        };
         foreach (var node in locallySelectedPath)
         {
-            dataToSend.path.Add(node.position);
+            singlePath.path.Add(node.position);
         }
 
-        // Use the new structured `Send` method.
-        NetworkManager.Instance.Send("submit_path", dataToSend);
+        var pathsList = new List<PathData> { singlePath };
+
+        WorkerPathsPayload payload = new WorkerPathsPayload { paths = pathsList };
+        
+        NetworkManager.Instance.Send("place_workers", payload);
+        DisablePathSelection();
+        UIManager.Instance.SetDoneButtonActive(false);
     }
 
     public void ExecuteServerPath(List<Vector3> serverPath)
@@ -96,7 +147,7 @@ public class CornerPathManager : MonoBehaviour
             currentStep = 0;
         }
     }
-    
+
     void Update()
     {
         if (!isMoving || serverConfirmedPath.Count < 2) return;

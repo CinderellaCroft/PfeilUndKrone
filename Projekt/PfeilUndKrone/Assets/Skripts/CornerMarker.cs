@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class CornerMarker : MonoBehaviour,
-    IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public class CornerMarker : MonoBehaviour, IPointerClickHandler
 {
     public CornerNode node;
 
@@ -10,26 +9,18 @@ public class CornerMarker : MonoBehaviour,
     {
         if (node == null)
         {
-            Debug.LogWarning("[CornerMarker] Kein CornerNode zugewiesen!");
+            Debug.LogWarning("[CornerMarker] No CornerNode assigned!");
             return;
         }
 
-        Debug.Log($"[CornerMarker] Klick auf Ecke {node.position}");
-
-        if (CornerPathManager.Instance != null)
-            CornerPathManager.Instance.OnCornerClicked(node);
+        // Delegate the click to the central game manager
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnCornerClicked(node);
+        }
         else
-            Debug.LogWarning("[CornerMarker] Kein CornerPathManager vorhanden!");
-    }
-
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-
+        {
+            Debug.LogWarning("[CornerMarker] No GameManager instance found!");
+        }
     }
 }
