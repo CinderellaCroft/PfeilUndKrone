@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
+// Payload‐Klassen für die Worker‐Pfad‐Daten
 [System.Serializable]
 public class PathData
 {
-    public List<Vector3> path;
+    public List<CornerCoord> path;
 }
 
 [System.Serializable]
@@ -15,22 +17,20 @@ public class WorkerPathsPayload
 
 public class CornerPathManager : MonoBehaviour
 {
-    private static CornerPathManager _instance;
-    public static CornerPathManager Instance
-    {
-        get
-        {
-            if (_instance == null) _instance = FindFirstObjectByType<CornerPathManager>();
-            return _instance;
-        }
-    }
+    public static CornerPathManager Instance;
 
-    [Header("Worker move")]
+    [Header("Worker (Kugel) zum Bewegen")]
     public GameObject workerPrefab;
-    private GameObject playerObject;
+
+    // Laufende Pfadauswahl
     private List<CornerNode> locallySelectedPath = new();
-    private List<Vector3> serverConfirmedPath = new();
     private HashSet<CornerNode> validNext = new();
+
+    // Ergebnis vom Server in CornerCoords + Welt-Positionen
+    private List<CornerCoord> serverConfirmedCoords = new();
+    private List<Vector3> serverConfirmedPath = new();
+
+    private GameObject playerObject;
     private bool selectionComplete = false;
     private bool isMoving = false;
     private int currentStep = 0;
@@ -39,15 +39,12 @@ public class CornerPathManager : MonoBehaviour
 
     void Awake()
     {
-        if (_instance == null)
+        if (Instance == null)
         {
-            _instance = this;
+            Instance = this;
             DontDestroyOnLoad(gameObject);
         }
-        else if (_instance != this)
-        {
-            Destroy(gameObject);
-        }
+        else Destroy(gameObject);
     }
 
     void Start()
@@ -58,21 +55,19 @@ public class CornerPathManager : MonoBehaviour
             playerObject.name = "Worker";
             playerObject.SetActive(false);
         }
-        else
-        {
-            Debug.LogError("[CornerPathManager] Kein workerPrefab zugewiesen!");
-        }
+        else Debug.LogError("[CornerPathManager] Kein workerPrefab zugewiesen!");
     }
 
+    // Aktiviert die Pfadauswahl
     public void EnablePathSelection()
     {
         _isSelectionEnabled = true;
         locallySelectedPath.Clear();
+        serverConfirmedCoords.Clear();
         serverConfirmedPath.Clear();
         selectionComplete = false;
         isMoving = false;
         if (playerObject) playerObject.SetActive(false);
-        Debug.Log("Path selection enabled.");
     }
 
     public void DisablePathSelection()
@@ -80,68 +75,90 @@ public class CornerPathManager : MonoBehaviour
         _isSelectionEnabled = false;
     }
 
+    // Klick auf eine Ecke
     public void OnCornerClicked(CornerNode node)
     {
-        if (!_isSelectionEnabled || selectionComplete || isMoving) return;
+        if (!_isSelectionEnabled || selectionComplete || isMoving)
+            return;
+
+        // 1. Klick = Startpunkt
         if (locallySelectedPath.Count == 0)
         {
             locallySelectedPath.Add(node);
-            Debug.Log($"Start-Ecke gewählt: {node.position}");
+            Debug.Log($"Start-Corner: ({node.hexQ},{node.hexR},{node.cornerIndex})");
+
+            // Nächste valide Ecken = alle Nachbarn dieses Knotens
             validNext.Clear();
-            foreach (var neigh in node.neighbors) validNext.Add(neigh);
-            return;
-        }
-        if (!validNext.Contains(node))
-        {
-            Debug.Log($"Ecke {node.position} ist nicht gültige Nachbar-Ecke");
+            foreach (var neigh in node.neighbors)
+                validNext.Add(neigh);
+
             return;
         }
 
+        // 2. Klick auf ungültige Ecke
+        if (!validNext.Contains(node))
+        {
+            Debug.Log($"Invalid Corner: ({node.hexQ},{node.hexR},{node.cornerIndex}).");
+
+            var last = locallySelectedPath[locallySelectedPath.Count - 1];
+            validNext.Clear();
+            foreach (var neigh in last.neighbors)
+                validNext.Add(neigh);
+
+            return;
+        }
+
+        // 3. Gültige Auswahl: Ecke zum Pfad hinzufügen
         locallySelectedPath.Add(node);
-        Debug.Log($"Ecke zur Pfadliste hinzugefügt {node.position}");
+        Debug.Log($"Added Corner ({node.hexQ},{node.hexR},{node.cornerIndex})");
+
+        // 4. Prüfen: Ist diese Ecke eine zentrale Ecke von Hex(0,0)?
         if (HexGridGenerator.Instance.centralCorners.Contains(node))
         {
             selectionComplete = true;
-            // The Done button now handles submission. This part is less critical.
-            // You could have it auto-submit or wait for the button.
-            // For now, let's just log it.
-            Debug.Log("Path reached center. Click 'Done' to submit.");
+            Debug.Log("Pfad bis Zentrum ausgewählt. Jetzt 'Done' drücken.");
         }
+
+        // 5. Neue validNext = alle unbesuchten Nachbarn der aktuellen Ecke
         validNext.Clear();
         foreach (var neigh in node.neighbors)
+        {
             if (!locallySelectedPath.Contains(neigh))
                 validNext.Add(neigh);
+        }
     }
 
+
+    // Schickt den gewählten Pfad als CornerCoords ans Backend
     public void SubmitPathToServer()
     {
-        if (!_isSelectionEnabled) return;
+        if (!_isSelectionEnabled || !selectionComplete) return;
 
-        PathData singlePath = new PathData
+        var pd = new PathData
         {
-            path = new List<Vector3>()
+            path = locallySelectedPath
+                   .Select(n => n.ToCoord())
+                   .ToList()
         };
-        foreach (var node in locallySelectedPath)
-        {
-            singlePath.path.Add(node.position);
-        }
+        var payload = new WorkerPathsPayload { paths = new List<PathData> { pd } };
 
-        var pathsList = new List<PathData> { singlePath };
-
-        WorkerPathsPayload payload = new WorkerPathsPayload { paths = pathsList };
-        
         NetworkManager.Instance.Send("place_workers", payload);
         DisablePathSelection();
-        UIManager.Instance.SetDoneButtonActive(false);
     }
 
-    public void ExecuteServerPath(List<Vector3> serverPath)
+    // Wird vom NetworkManager gerufen nach "path_approved"
+    public void ExecuteServerPath(List<CornerCoord> coords)
     {
-        serverConfirmedPath = serverPath;
-        if (playerObject != null && serverConfirmedPath.Count > 0)
+        serverConfirmedCoords = coords;
+        serverConfirmedPath = coords
+            .Select(c => CoordToWorld(c))
+            .ToList();
+
+        if (serverConfirmedPath.Count > 0 && playerObject != null)
         {
-            Vector3 firstPos = serverConfirmedPath[0];
-            playerObject.transform.position = new Vector3(firstPos.x, playerObject.transform.position.y, firstPos.z);
+            // Setze Worker ans erste Eck
+            Vector3 first = serverConfirmedPath[0];
+            playerObject.transform.position = new Vector3(first.x, playerObject.transform.position.y, first.z);
             playerObject.SetActive(true);
             isMoving = true;
             currentStep = 0;
@@ -151,22 +168,41 @@ public class CornerPathManager : MonoBehaviour
     void Update()
     {
         if (!isMoving || serverConfirmedPath.Count < 2) return;
-        Vector3 nextCorner = serverConfirmedPath[currentStep + 1];
+
         Vector3 current = playerObject.transform.position;
-        Vector3 desired = new Vector3(nextCorner.x, current.y, nextCorner.z);
-        playerObject.transform.position = Vector3.MoveTowards(current, desired, speed * Time.deltaTime);
-        if (Vector2.Distance(new Vector2(current.x, current.z), new Vector2(nextCorner.x, nextCorner.z)) < 0.01f)
+        Vector3 target = serverConfirmedPath[currentStep + 1];
+        Vector3 desired = new Vector3(target.x, current.y, target.z);
+
+        playerObject.transform.position = Vector3.MoveTowards(
+            current, desired, speed * Time.deltaTime
+        );
+
+
+        float distXZ = Vector2.Distance(
+            new Vector2(current.x, current.z),
+            new Vector2(target.x, target.z)
+        );
+        if (distXZ < 0.01f)
         {
             currentStep++;
             if (currentStep >= serverConfirmedPath.Count - 1)
             {
                 isMoving = false;
-                Debug.Log("Pfad vollständig.");
                 playerObject.SetActive(false);
                 locallySelectedPath.Clear();
+                serverConfirmedCoords.Clear();
                 serverConfirmedPath.Clear();
                 selectionComplete = false;
             }
         }
+    }
+
+    // Hilfsfunktion: CornerCoord → Weltposition
+    private Vector3 CoordToWorld(CornerCoord c)
+    {
+        float radius = HexGridGenerator.Instance.hexRadius;
+        Vector3 center = HexGridGenerator.Instance.HexToWorld(c.q, c.r, radius);
+        Vector3[] corners = HexGridGenerator.Instance.GetHexCorners(center, radius);
+        return corners[c.i];
     }
 }

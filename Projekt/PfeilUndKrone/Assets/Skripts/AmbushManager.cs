@@ -1,15 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// A simple struct to represent an edge between two corners
+// Nun mit CornerCoords statt Vector3
 [System.Serializable]
 public struct AmbushEdge
 {
-    public Vector3 posA;
-    public Vector3 posB;
+    public CornerCoord cornerA;
+    public CornerCoord cornerB;
 }
 
-// A wrapper class for sending a list of ambushes
 [System.Serializable]
 public class AmbushData
 {
@@ -18,40 +17,24 @@ public class AmbushData
 
 public class AmbushManager : MonoBehaviour
 {
-    private static AmbushManager _instance;
-    public static AmbushManager Instance
-    {
-        get
-        {
-            if (_instance == null) _instance = FindFirstObjectByType<AmbushManager>();
-            return _instance;
-        }
-    }
+    public static AmbushManager Instance;
 
     private bool _isPlacementEnabled = false;
-    private CornerNode _firstCornerSelected = null;
-    private List<AmbushEdge> _placedAmbushes = new List<AmbushEdge>();
+    private CornerNode _firstCorner = null;
+    private List<AmbushEdge> _placed = new List<AmbushEdge>();
     private const int MAX_AMBUSHES = 5;
-    
+
     void Awake()
     {
-        if (_instance == null)
-        {
-            _instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else if (_instance != this)
-        {
-            Destroy(gameObject);
-        }
+        if (Instance == null) { Instance = this; DontDestroyOnLoad(gameObject); }
+        else Destroy(gameObject);
     }
 
     public void EnableAmbushPlacement()
     {
         _isPlacementEnabled = true;
-        _placedAmbushes.Clear();
-        _firstCornerSelected = null;
-        Debug.Log("Ambush placement enabled.");
+        _placed.Clear();
+        _firstCorner = null;
     }
 
     public void DisableAmbushPlacement()
@@ -59,65 +42,78 @@ public class AmbushManager : MonoBehaviour
         _isPlacementEnabled = false;
     }
 
+    // Klick auf Ecke
     public void OnCornerClicked(CornerNode node)
     {
         if (!_isPlacementEnabled) return;
 
-        if (_placedAmbushes.Count >= MAX_AMBUSHES)
+        if (_placed.Count >= MAX_AMBUSHES)
         {
-            Debug.LogWarning("Maximum number of ambushes placed.");
-            UIManager.Instance.UpdateInfoText("Max ambushes placed. Click 'Done'.");
+            Debug.LogWarning("Max ambushes reached.");
             return;
         }
 
-        if (_firstCornerSelected == null)
+        if (_firstCorner == null)
         {
-            _firstCornerSelected = node;
-            Debug.Log($"Selected first corner for ambush at {node.position}");
-            UIManager.Instance.UpdateInfoText("Select an adjacent corner to place ambush.");
+            _firstCorner = node;
+            Debug.Log($"Ambush Start-Ecke: {node.ToCoord()}");
         }
         else
         {
-            if (_firstCornerSelected.neighbors.Contains(node))
+            // nur benachbarte Ecken erlaubt
+            if (_firstCorner.neighbors.Contains(node))
             {
-                AmbushEdge newAmbush = new AmbushEdge { posA = _firstCornerSelected.position, posB = node.position };
-                NetworkManager.Instance.Send("buy_ambush", newAmbush);
+                var edge = new AmbushEdge
+                {
+                    cornerA = _firstCorner.ToCoord(),
+                    cornerB = node.ToCoord()
+                };
+                NetworkManager.Instance.Send("buy_ambush", edge);
             }
             else
             {
-                Debug.LogWarning("Invalid ambush placement: Corners are not adjacent.");
-                UIManager.Instance.UpdateInfoText("Error: Corners must be adjacent.");
+                Debug.LogWarning("Corners not adjacent for ambush.");
             }
-            _firstCornerSelected = null;
+            _firstCorner = null;
         }
     }
 
+    // Server bestätigt einzelne Platzierung
     public void ConfirmAmbushPlacement(AmbushEdge edge)
     {
-        _placedAmbushes.Add(edge);
-        Debug.Log($"Ambush confirmed between {edge.posA} and {edge.posB}. Total: {_placedAmbushes.Count}");
-        UIManager.Instance.UpdateInfoText($"Ambush placed! ({_placedAmbushes.Count}/{MAX_AMBUSHES})");
+        _placed.Add(edge);
+        Debug.Log($"Ambush bestätigt: {edge.cornerA} ↔ {edge.cornerB}");
     }
 
+    // Button "Done" → alle Ambushes ans Backend
     public void FinalizeAmbushes()
     {
         if (!_isPlacementEnabled) return;
-
-        AmbushData dataToSend = new AmbushData { ambushes = _placedAmbushes };
-        NetworkManager.Instance.Send("place_ambushes", dataToSend);
-        Debug.Log("Final ambush positions submitted to server.");
+        var data = new AmbushData { ambushes = _placed };
+        NetworkManager.Instance.Send("place_ambushes", data);
         DisableAmbushPlacement();
-        UIManager.Instance.SetDoneButtonActive(false);
     }
 
     void Update()
     {
         if (_isPlacementEnabled)
         {
-            foreach (var ambush in _placedAmbushes)
+            // Visualisiere aktuelle Ambushes
+            foreach (var e in _placed)
             {
-                Debug.DrawLine(ambush.posA, ambush.posB, Color.red);
+                Vector3 a = CoordToWorld(e.cornerA);
+                Vector3 b = CoordToWorld(e.cornerB);
+                Debug.DrawLine(a, b, Color.red);
             }
         }
+    }
+
+    // Hilfsfunktion: CornerCoord → Weltposition
+    private Vector3 CoordToWorld(CornerCoord c)
+    {
+        float radius = HexGridGenerator.Instance.hexRadius;
+        Vector3 center = HexGridGenerator.Instance.HexToWorld(c.q, c.r, radius);
+        Vector3[] corners = HexGridGenerator.Instance.GetHexCorners(center, radius);
+        return corners[c.i];
     }
 }

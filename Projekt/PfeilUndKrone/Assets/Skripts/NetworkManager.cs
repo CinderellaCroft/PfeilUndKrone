@@ -51,6 +51,14 @@ public class ServerMessageExecuteRound
     public ExecuteRoundPayload payload;
 }
 
+[Serializable]
+public class ServerMessagePathApproved
+{
+    public string type;
+    public PathApprovedPayload payload;
+}
+
+
 // For simple string payloads like "info" and "error"
 [Serializable]
 public class ServerMessageStringPayload
@@ -65,8 +73,9 @@ public class ServerMessageStringPayload
 [Serializable]
 public class PathApprovedPayload
 {
-    public List<Vector3> path;
+    public List<CornerCoord> path;
 }
+
 
 [Serializable]
 public class MatchCreatedPayload
@@ -207,6 +216,15 @@ public class NetworkManager : MonoBehaviour
                             JsonUtility.ToJson(roundMessage.payload.banditAmbushes)
                         );
                         break;
+
+                    case "path_approved":
+                        var approvedMsg = JsonUtility.FromJson<ServerMessagePathApproved>(messageString);
+                        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                        {
+                            CornerPathManager.Instance.ExecuteServerPath(approvedMsg.payload.path);
+                        });
+                        break;
+
 
                     case "new_round":
                         // Assuming "new_round" also sends a ResourcePayload
