@@ -149,21 +149,39 @@ public class CornerPathManager : MonoBehaviour
     // Wird vom NetworkManager gerufen nach "path_approved"
     public void ExecuteServerPath(List<CornerCoord> coords)
     {
-        serverConfirmedCoords = coords;
+
+        foreach (var c in coords)
+
+
+            serverConfirmedCoords = coords;
         serverConfirmedPath = coords
-            .Select(c => CoordToWorld(c))
+            .Select(c =>
+            {
+                Vector3 world = CoordToWorld(c);
+
+                return world;
+            })
             .ToList();
+
+
 
         if (serverConfirmedPath.Count > 0 && playerObject != null)
         {
             // Setze Worker ans erste Eck
             Vector3 first = serverConfirmedPath[0];
+
             playerObject.transform.position = new Vector3(first.x, playerObject.transform.position.y, first.z);
+
             playerObject.SetActive(true);
             isMoving = true;
             currentStep = 0;
         }
+        else
+        {
+            Debug.LogWarning("[ExecuteServerPath] Kein gültiger Pfad oder playerObject fehlt.");
+        }
     }
+
 
     void Update()
     {

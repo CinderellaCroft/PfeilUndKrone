@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public enum PlayerRole { None, King, Bandit }
@@ -32,7 +33,7 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-        
+
     }
 
     public void SetRole(string roleName)
@@ -62,7 +63,7 @@ public class GameManager : MonoBehaviour
         if (MyRole == PlayerRole.Bandit) UIManager.Instance.SetDoneButtonActive(true);
     }
 
-    public void StartExecutionPhase(string kingPathsJson, string banditAmbushesJson)
+    public void StartExecutionPhase(List<PathData> kingPaths, List<AmbushEdge> banditAmbushes)
     {
         CurrentTurn = GameTurn.Executing;
         UIManager.Instance.UpdateTurnStatus("Executing Round...");
@@ -70,8 +71,19 @@ public class GameManager : MonoBehaviour
         CornerPathManager.Instance.DisablePathSelection();
         AmbushManager.Instance.DisableAmbushPlacement();
 
-        Debug.Log("Executing round with King paths: " + kingPathsJson);
-        Debug.Log("And Bandit ambushes: " + banditAmbushesJson);
+        Debug.Log("Executing round with King paths:");
+        foreach (var pd in kingPaths)
+            foreach (var c in pd.path)
+                Debug.Log($"  Corner: ({c.q},{c.r},{c.i})");
+
+        Debug.Log("And Bandit ambushes:");
+        foreach (var amb in banditAmbushes)
+            Debug.Log($"  Ambush: ({amb.cornerA.q},{amb.cornerA.r},{amb.cornerA.i}) ↔ ({amb.cornerB.q},{amb.cornerB.r},{amb.cornerB.i})");
+
+        // Hier kannst du dann starten, welche Pfade ausgeführt werden sollen
+        // z.B. Worker loslaufen lassen:
+        if (kingPaths.Count > 0)
+            CornerPathManager.Instance.ExecuteServerPath(kingPaths[0].path);
     }
 
     public void OnCornerClicked(CornerNode node)

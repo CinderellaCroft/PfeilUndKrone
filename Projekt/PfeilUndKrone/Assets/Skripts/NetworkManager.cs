@@ -95,9 +95,11 @@ public class ResourcePayload
 [Serializable]
 public class ExecuteRoundPayload
 {
-    public string kingPaths; // Keep as JSON strings for simplicity
-    public string banditAmbushes;
+    public List<PathData> kingPaths;
+    public List<AmbushEdge> banditAmbushes;
+    // public List<Outcome> outcomes; // falls du Outcomes noch brauchst
 }
+
 
 
 public class NetworkManager : MonoBehaviour
@@ -210,18 +212,28 @@ public class NetworkManager : MonoBehaviour
                         break;
 
                     case "execute_round":
-                        var roundMessage = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString);
-                        GameManager.Instance.StartExecutionPhase(
-                            JsonUtility.ToJson(roundMessage.payload.kingPaths),
-                            JsonUtility.ToJson(roundMessage.payload.banditAmbushes)
-                        );
-                        break;
+                        Debug.Log(messageString);
+                        var execMsg = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString);
 
-                    case "path_approved":
-                        var approvedMsg = JsonUtility.FromJson<ServerMessagePathApproved>(messageString);
+                        // 2) Gib es an den GameManager weiter (mit echten Listen, nicht JSON-Strings)
+                        GameManager.Instance.StartExecutionPhase(
+                            execMsg.payload.kingPaths,
+                            execMsg.payload.banditAmbushes
+                        );
+
+                        // 3) Nun direkt den ersten King-Pfad ausführen
                         UnityMainThreadDispatcher.Instance().Enqueue(() =>
                         {
-                            CornerPathManager.Instance.ExecuteServerPath(approvedMsg.payload.path);
+                            if (execMsg.payload.kingPaths != null && execMsg.payload.kingPaths.Count > 0)
+                            {
+                                var firstPath = execMsg.payload.kingPaths[0].path;
+                                Debug.Log($"[NM] Führe ersten King-Pfad aus mit {firstPath.Count} Ecken.");
+                                CornerPathManager.Instance.ExecuteServerPath(firstPath);
+                            }
+                            else
+                            {
+                                Debug.LogWarning("[NM] Keine kingPaths im execute_round-Payload.");
+                            }
                         });
                         break;
 
