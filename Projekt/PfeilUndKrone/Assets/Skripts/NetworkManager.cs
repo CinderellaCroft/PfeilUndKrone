@@ -101,6 +101,21 @@ public class ExecuteRoundPayload
 }
 
 
+[Serializable]
+public class LobbyJoinedPayload
+{
+    public string lobby_id;
+    public bool   queued;
+}
+
+[Serializable]
+public class ServerMessageLobbyJoined
+{
+    public string type;
+    public LobbyJoinedPayload payload;
+}
+
+
 
 public class NetworkManager : MonoBehaviour
 {
@@ -150,6 +165,8 @@ public class NetworkManager : MonoBehaviour
         websocket.OnOpen += () =>
         {
             Debug.Log("Connection to server opened!");
+            //erstmal nur join_random. Next: join_lobby and create_lobby
+            Send("join_random", new object());   
         };
 
         websocket.OnError += (e) =>
@@ -186,6 +203,17 @@ public class NetworkManager : MonoBehaviour
                     case "match_found":
                         Debug.Log("Match found! Waiting for other players...");
                         UIManager.Instance.UpdateInfoText("Match found! Waiting for other players...");
+                        break;
+                    
+
+                    case "lobby_joined":
+                        var lj = JsonUtility.FromJson<ServerMessageLobbyJoined>(messageString);
+                        Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
+                        UIManager.Instance.UpdateInfoText(
+                            lj.payload.queued
+                                ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})"
+                                : $"Opponent found! Starting…"
+                        );
                         break;
 
                     case "king_turn_start":
