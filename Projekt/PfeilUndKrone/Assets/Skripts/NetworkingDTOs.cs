@@ -64,7 +64,7 @@ public class ExecuteRoundPayload
     public List<PathData> kingPaths;
     public List<AmbushEdge> banditAmbushes;
     public List<AmbushEdge> outcome;
-    public ResourcePayload winnersResourceUpdate;
+    public ResourcePayload winnerResourceUpdate;
 
     public string winner;
 }
@@ -119,7 +119,21 @@ public class LobbyJoinedPayload
 }
 
 [Serializable]
-public class ServerMessageLobbyJoined
+public class ServerMessageLobbyJoinedRandomly
+{
+    public string type;
+    public LobbyJoinedPayload payload;
+}
+
+[Serializable]
+public class ServerMessageLobbyCreated
+{
+    public string type;
+    public string lobbyID;
+}
+
+[Serializable]
+public class ServerMessageLobbyJoinedById
 {
     public string type;
     public LobbyJoinedPayload payload;

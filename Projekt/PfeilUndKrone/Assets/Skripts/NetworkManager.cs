@@ -55,13 +55,14 @@ public class NetworkManager : MonoBehaviour
         websocket.OnOpen += () =>
         {
             Debug.Log("Connection to server opened!");
-<<<<<<< HEAD
             //erstmal nur join_random verwenden, später auch create_lobby und join_lobby
-            Send("join_random", new object());  
-=======
-            //erstmal nur join_random. Next: join_lobby and create_lobby
-            Send("join_random", new object());   
->>>>>>> a0305b97e9a9940a5d911847c9e3ddf39c939be3
+            Send("join_random", new object());  // -> response: lobby_randomly_joined
+
+
+            //Send("create_lobby", new object());  // -> lobby_created
+
+            // var payload = new { lobby_id = "priv-1753375008725-882" }; // Replace with actual lobby ID
+            // Send("join_lobbyById", payload);
         };
 
         websocket.OnError += (e) =>
@@ -89,15 +90,8 @@ public class NetworkManager : MonoBehaviour
                 // Now, use the type to deserialize to the correct, fully-structured class
                 switch (typeFinder.type)
                 {
-                    case "match_created":
-                        var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
-                        Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
-                        GameManager.Instance.SetRole(matchMessage.payload.role);
-                        break;
-
-
-                    case "lobby_joined":
-                        var lj = JsonUtility.FromJson<ServerMessageLobbyJoined>(messageString);
+                    case "lobby_randomly_joined":
+                        var lj = JsonUtility.FromJson<ServerMessageLobbyJoinedRandomly>(messageString);
                         Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
                         UIManager.Instance.UpdateInfoText(
                             lj.payload.queued
@@ -106,15 +100,25 @@ public class NetworkManager : MonoBehaviour
                         );
                         break;
                     
-
-                    case "lobby_joined":
-                        var lj = JsonUtility.FromJson<ServerMessageLobbyJoined>(messageString);
-                        Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
+                    //receive lobbyID by server, log lobbyID to console -> share lobbyID with a friend
+                    case "lobby_created":
+                        var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
+                        Debug.Log($"Created: {msg.lobbyID}");
                         UIManager.Instance.UpdateInfoText(
-                            lj.payload.queued
-                                ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})"
-                                : $"Opponent found! Starting…"
+                                $"Waiting for opponent… (Lobby ID: {msg.lobbyID})"
                         );
+                        break;
+
+                    case "lobby_joinedById":
+                        var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
+                        Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} (queued={joinedMsg.payload.queued})");
+                        break;
+                        
+
+                    case "match_created":
+                        var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
+                        Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
+                        GameManager.Instance.SetRole(matchMessage.payload.role);
                         break;
 
                     case "king_turn_start":
@@ -151,7 +155,7 @@ public class NetworkManager : MonoBehaviour
                         );
 
                         
-                        var r = execMsg.winnersResourceUpdate;
+                        var r = execMsg.winnerResourceUpdate;
 
                         //ResourceUpdate
                         if (GameManager.Instance.MyRole.ToString() == execMsg.winner)
