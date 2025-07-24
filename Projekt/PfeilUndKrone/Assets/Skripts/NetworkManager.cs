@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System;
 using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
 using NetworkingDTOs;
+
+
+
 public class NetworkManager : MonoBehaviour
 {
     // --- A robust Singleton pattern to prevent script execution order issues ---
@@ -52,8 +55,13 @@ public class NetworkManager : MonoBehaviour
         websocket.OnOpen += () =>
         {
             Debug.Log("Connection to server opened!");
+<<<<<<< HEAD
             //erstmal nur join_random verwenden, später auch create_lobby und join_lobby
             Send("join_random", new object());  
+=======
+            //erstmal nur join_random. Next: join_lobby and create_lobby
+            Send("join_random", new object());   
+>>>>>>> a0305b97e9a9940a5d911847c9e3ddf39c939be3
         };
 
         websocket.OnError += (e) =>
@@ -87,6 +95,17 @@ public class NetworkManager : MonoBehaviour
                         GameManager.Instance.SetRole(matchMessage.payload.role);
                         break;
 
+
+                    case "lobby_joined":
+                        var lj = JsonUtility.FromJson<ServerMessageLobbyJoined>(messageString);
+                        Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
+                        UIManager.Instance.UpdateInfoText(
+                            lj.payload.queued
+                                ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})"
+                                : $"Opponent found! Starting…"
+                        );
+                        break;
+                    
 
                     case "lobby_joined":
                         var lj = JsonUtility.FromJson<ServerMessageLobbyJoined>(messageString);
