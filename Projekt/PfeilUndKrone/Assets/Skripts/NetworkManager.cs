@@ -3,105 +3,7 @@ using NativeWebSocket;
 using System.Collections.Generic;
 using System;
 using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
-
-/// <summary>
-/// This class is used to structure messages SENT TO the server.
-/// The payload is a JSON string, not a complex object.
-/// </summary>
-[Serializable]
-class ClientMessage
-{
-    public string type;
-    public string payload;
-}
-
-// A simple class to determine the message type before full deserialization
-[Serializable]
-public class ServerMessageType
-{
-    public string type;
-}
-
-// Specific message classes for each type from the server
-[Serializable]
-public class ServerMessageMatchCreated
-{
-    public string type;
-    public MatchCreatedPayload payload;
-}
-
-[Serializable]
-public class ServerMessageResourceUpdate
-{
-    public string type;
-    public ResourcePayload payload;
-}
-
-[Serializable]
-public class ServerMessageAmbushApproved
-{
-    public string type;
-    public AmbushEdge payload;
-}
-
-[Serializable]
-public class ServerMessageExecuteRound
-{
-    public string type;
-    public ExecuteRoundPayload payload;
-}
-
-[Serializable]
-public class ServerMessagePathApproved
-{
-    public string type;
-    public PathApprovedPayload payload;
-}
-
-
-// For simple string payloads like "info" and "error"
-[Serializable]
-public class ServerMessageStringPayload
-{
-    public string type;
-    public string payload;
-}
-
-/// <summary>
-/// A specific class to deserialize the payload of a "path_approved" message.
-/// </summary>
-[Serializable]
-public class PathApprovedPayload
-{
-    public List<CornerCoord> path;
-}
-
-
-[Serializable]
-public class MatchCreatedPayload
-{
-    public string role;
-    // public MapData map; // Add later
-}
-
-[Serializable]
-public class ResourcePayload
-{
-    public int gold;
-    public int wood;
-    public int grain;
-}
-
-[Serializable]
-public class ExecuteRoundPayload
-{
-    public List<PathData> kingPaths;
-    public List<AmbushEdge> banditAmbushes;
-    // public List<Outcome> outcomes; // falls du Outcomes noch brauchst
-}
-
-
-
+using NetworkingDTOs;
 public class NetworkManager : MonoBehaviour
 {
     // --- A robust Singleton pattern to prevent script execution order issues ---
@@ -150,6 +52,8 @@ public class NetworkManager : MonoBehaviour
         websocket.OnOpen += () =>
         {
             Debug.Log("Connection to server opened!");
+            //erstmal nur join_random verwenden, später auch create_lobby und join_lobby
+            Send("join_random", new object());  
         };
 
         websocket.OnError += (e) =>
@@ -183,9 +87,15 @@ public class NetworkManager : MonoBehaviour
                         GameManager.Instance.SetRole(matchMessage.payload.role);
                         break;
 
-                    case "match_found":
-                        Debug.Log("Match found! Waiting for other players...");
-                        UIManager.Instance.UpdateInfoText("Match found! Waiting for other players...");
+
+                    case "lobby_joined":
+                        var lj = JsonUtility.FromJson<ServerMessageLobbyJoined>(messageString);
+                        Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
+                        UIManager.Instance.UpdateInfoText(
+                            lj.payload.queued
+                                ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})"
+                                : $"Opponent found! Starting…"
+                        );
                         break;
 
                     case "king_turn_start":
@@ -213,20 +123,35 @@ public class NetworkManager : MonoBehaviour
 
                     case "execute_round":
                         Debug.Log(messageString);
-                        var execMsg = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString);
+                        var execMsg = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString).payload;
 
                         // 2) Gib es an den GameManager weiter (mit echten Listen, nicht JSON-Strings)
                         GameManager.Instance.StartExecutionPhase(
-                            execMsg.payload.kingPaths,
-                            execMsg.payload.banditAmbushes
+                            execMsg.kingPaths,
+                            execMsg.banditAmbushes
                         );
+
+                        
+                        var r = execMsg.winnersResourceUpdate;
+
+                        //ResourceUpdate
+                        if (GameManager.Instance.MyRole.ToString() == execMsg.winner)
+                        {
+                            UIManager.Instance.UpdateResourcesText(r.gold, r.wood, r.grain);
+                        }
+
+
+                        Debug.Log($"Winner: {execMsg.winner}, Gold: {r.gold}, Wood: {r.wood}, Grain: {r.grain}");
+                        //Log outcome
+                        Debug.Log(
+                            $"Rounds Outcome. Winner: {execMsg.winner}, Bandits successful ambushes: {execMsg.outcome} ");
 
                         // 3) Nun direkt den ersten King-Pfad ausführen
                         UnityMainThreadDispatcher.Instance().Enqueue(() =>
                         {
-                            if (execMsg.payload.kingPaths != null && execMsg.payload.kingPaths.Count > 0)
+                            if (execMsg.kingPaths != null && execMsg.kingPaths.Count > 0)
                             {
-                                var firstPath = execMsg.payload.kingPaths[0].path;
+                                var firstPath = execMsg.kingPaths[0].path;
                                 Debug.Log($"[NM] Führe ersten King-Pfad aus mit {firstPath.Count} Ecken.");
                                 CornerPathManager.Instance.ExecuteServerPath(firstPath);
                             }
@@ -246,6 +171,10 @@ public class NetworkManager : MonoBehaviour
                         break;
 
                     case "info":
+                        var info = JsonUtility.FromJson<ServerMessageStringPayload>(messageString);
+                        Debug.Log($"Info-Message from Server: {info}");
+                        break;
+
                     case "error":
                         // This handles cases where the payload is just a simple string
                         var stringMessage = JsonUtility.FromJson<ServerMessageStringPayload>(messageString);

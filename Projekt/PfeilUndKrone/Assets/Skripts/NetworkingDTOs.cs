@@ -1,0 +1,127 @@
+using UnityEngine;
+using NativeWebSocket;
+using System.Collections.Generic;
+using System;
+using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
+
+/// <summary>
+/// This class is used to structure messages SENT TO the server.
+/// The payload is a JSON string, not a complex object.
+/// </summary>
+
+
+namespace NetworkingDTOs
+{
+    
+[Serializable]
+public class ClientMessage
+{
+    public string type;
+    public string payload;
+}
+
+// A simple class to determine the message type before full deserialization
+[Serializable]
+public class ServerMessageType
+{
+    public string type;
+}
+
+// Specific message classes for each type from the server
+[Serializable]
+public class ServerMessageMatchCreated
+{
+    public string type;
+    public MatchCreatedPayload payload;
+}
+
+[Serializable]
+public class ResourcePayload
+{
+    public int gold;
+    public int wood;
+    public int grain;
+}
+
+[Serializable]
+public class ServerMessageResourceUpdate
+{
+    public string type;
+    public ResourcePayload payload;
+}
+
+[Serializable]
+public class ServerMessageAmbushApproved
+{
+    public string type;
+    public AmbushEdge payload;
+}
+
+
+[Serializable]
+public class ExecuteRoundPayload
+{
+    public List<PathData> kingPaths;
+    public List<AmbushEdge> banditAmbushes;
+    public List<AmbushEdge> outcome;
+    public ResourcePayload winnersResourceUpdate;
+
+    public string winner;
+}
+
+[Serializable]
+public class ServerMessageExecuteRound
+{
+    public string type;
+    public ExecuteRoundPayload payload;
+}
+
+[Serializable]
+public class ServerMessagePathApproved
+{
+    public string type;
+    public PathApprovedPayload payload;
+}
+
+
+// For simple string payloads like "info" and "error"
+[Serializable]
+public class ServerMessageStringPayload
+{
+    public string type;
+    public string payload;
+}
+
+/// <summary>
+/// A specific class to deserialize the payload of a "path_approved" message.
+/// </summary>
+[Serializable]
+public class PathApprovedPayload
+{
+    public List<CornerCoord> path;
+}
+
+
+[Serializable]
+public class MatchCreatedPayload
+{
+    public string role;
+    // public MapData map; // Add later
+}
+
+
+
+[Serializable]
+public class LobbyJoinedPayload
+{
+    public string lobby_id;
+    public bool   queued;
+}
+
+[Serializable]
+public class ServerMessageLobbyJoined
+{
+    public string type;
+    public LobbyJoinedPayload payload;
+}
+}
