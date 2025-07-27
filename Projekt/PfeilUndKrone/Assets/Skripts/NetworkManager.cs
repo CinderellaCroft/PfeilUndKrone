@@ -32,6 +32,10 @@ public class NetworkManager : MonoBehaviour
 
     private WebSocket websocket;
 
+    public static event Action OnGridDataReady;
+    public event Action<List<HexVertex>> OnPathApproved;
+    public event Action<AmbushEdge> OnAmbushConfirmed;
+
     void Awake()
     {
         // This enforces the Singleton pattern, ensuring only one instance exists.
@@ -99,7 +103,7 @@ public class NetworkManager : MonoBehaviour
                                 : $"Opponent found! Starting…"
                         );
                         break;
-                    
+
                     //receive lobbyID by server, log lobbyID to console -> share lobbyID with a friend
                     case "lobby_created":
                         var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
@@ -113,13 +117,22 @@ public class NetworkManager : MonoBehaviour
                         var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
                         Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} (queued={joinedMsg.payload.queued})");
                         break;
-                        
+
 
                     case "match_created":
                         var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
                         Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
                         GameManager.Instance.SetRole(matchMessage.payload.role);
                         break;
+
+                    case "grid_ready":
+                        OnGridDataReady?.Invoke();
+                        break;
+
+                    /* case "path_approved":
+                        var pm = JsonUtility.FromJson<ServerMessagePathApproved>(msg);
+                        OnPathApproved?.Invoke(pm.payload);
+                        break; */
 
                     case "king_turn_start":
                         GameManager.Instance.StartKingTurn();
@@ -131,7 +144,7 @@ public class NetworkManager : MonoBehaviour
 
                     case "ambush_approved":
                         var ambushMessage = JsonUtility.FromJson<ServerMessageAmbushApproved>(messageString);
-                        AmbushManager.Instance.ConfirmAmbushPlacement(ambushMessage.payload);
+                        OnAmbushConfirmed?.Invoke(ambushMessage.payload);
                         break;
 
                     case "ambush_denied":
@@ -154,7 +167,7 @@ public class NetworkManager : MonoBehaviour
                             execMsg.banditAmbushes
                         );
 
-                        
+
                         var r = execMsg.winnerResourceUpdate;
 
                         //ResourceUpdate
