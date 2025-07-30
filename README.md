@@ -15,3 +15,7 @@ Steen Nissen <br/>
 Malte Schneider <br/>
 Finja Moser <br/>
 Nils Schippmann <br/>
+
+---
+
+![Projekt_ClientServerKommunikationsdiagramm.drawio.png](Projekt_ClientServerKommunikationsdiagramm.drawio.png)
