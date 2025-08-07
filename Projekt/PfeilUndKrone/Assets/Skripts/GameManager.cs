@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using NetworkingDTOs;
 using UnityEngine;
 
 public enum PlayerRole { None, King, Bandit }
@@ -17,8 +19,27 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    [SerializeField] NetworkServiceBase networkService;
+
+    public HexGridGenerator gridGenerator;
+    public GridVisualsManager visualsManager;
+    public InteractionManager interactionManager;
+
+    private Dictionary<Hex, ResourceType> resourceMap;
+
     public PlayerRole MyRole { get; private set; } = PlayerRole.None;
     public GameTurn CurrentTurn { get; private set; } = GameTurn.Setup;
+
+    void OnEnable()
+    {
+        networkService.OnGridDataReady += OnGridReady;
+        networkService.OnResourceMapReceived += OnResourceMap;
+    }
+    void OnDisable()
+    {
+        networkService.OnGridDataReady -= OnGridReady;
+        networkService.OnResourceMapReceived -= OnResourceMap;
+    }
 
 
     void Awake()
@@ -45,7 +66,26 @@ public class GameManager : MonoBehaviour
         Debug.Log($"My role is: {MyRole}");
     }
 
-    public void StartKingTurn()
+    void OnGridReady()
+    {
+        gridGenerator.GenerateGrid();
+    }
+
+    void OnResourceMap(List<ResourceData> mapData)
+    {
+        // Build map
+        resourceMap = mapData.ToDictionary(rd => new Hex(rd.q, rd.r), rd => rd.resource);
+        foreach (var rd in mapData)
+        {
+            resourceMap[new Hex(rd.q, rd.r)] = rd.resource;
+        }
+
+        // Initialize visuals and interactions
+        visualsManager.InitializeVisuals(resourceMap);
+        interactionManager.EnableInteraction(MyRole);
+    }
+
+    /* public void StartKingTurn()
     {
         CurrentTurn = GameTurn.KingPlanning;
         UIManager.Instance.UpdateTurnStatus("King's Turn: Place Workers");
@@ -84,17 +124,5 @@ public class GameManager : MonoBehaviour
         // z.B. Worker loslaufen lassen:
         if (kingPaths.Count > 0)
             CornerPathManager.Instance.ExecuteServerPath(kingPaths[0].path);
-    }
-
-    public void OnCornerClicked(CornerNode node)
-    {
-        if (CurrentTurn == GameTurn.KingPlanning && MyRole == PlayerRole.King)
-        {
-            CornerPathManager.Instance.OnCornerClicked(node);
-        }
-        else if (CurrentTurn == GameTurn.BanditPlanning && MyRole == PlayerRole.Bandit)
-        {
-            AmbushManager.Instance.OnCornerClicked(node);
-        }
-    }
+    } */
 }

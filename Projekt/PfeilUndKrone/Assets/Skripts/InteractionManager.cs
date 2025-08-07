@@ -10,7 +10,7 @@ public class InteractionManager : MonoBehaviour
     public static InteractionManager Instance;
 
     public HexGridGenerator gridGen;
-    public NetworkManager net;
+    public NetworkServiceBase net;
 
     public GameObject workerPrefab;
     public float workerSpeed = 1f;
@@ -50,8 +50,15 @@ public class InteractionManager : MonoBehaviour
             .ToList();
     }
 
-    public void EnableInteraction() => currentMode = InteractionMode.PathSelection;
-    public void EnableAmbush() { ResetState(); currentMode = InteractionMode.AmbushPlacement; }
+    public void EnableInteraction(PlayerRole role)
+    {
+        if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
+        else if (role == PlayerRole.Bandit) currentMode = InteractionMode.AmbushPlacement;
+        else currentMode = InteractionMode.None;
+
+        ResetState();
+        workerObj.SetActive(false);
+    }
     public void DisableInteraction() { currentMode = InteractionMode.None; }
 
     void Update()
@@ -142,10 +149,9 @@ public class InteractionManager : MonoBehaviour
         DisableInteraction();
     }
 
-    void ConfirmAmbushPlacement(AmbushEdge edge)
+    void ConfirmAmbushPlacement(HexEdge edge)
     {
-        ambushEdges.Add(new HexEdge(new Hex(edge.cornerA.q, edge.cornerA.r),
-            (HexDirection)edge.cornerB.i));
+        ambushEdges.Add(edge);
     }
 
     void DrawAmbushLines()

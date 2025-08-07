@@ -7,7 +7,7 @@ using NetworkingDTOs;
 
 
 
-public class NetworkManager : MonoBehaviour
+public class NetworkManager : NetworkServiceBase
 {
     // --- A robust Singleton pattern to prevent script execution order issues ---
     private static NetworkManager _instance;
@@ -32,23 +32,10 @@ public class NetworkManager : MonoBehaviour
 
     private WebSocket websocket;
 
-    public static event Action OnGridDataReady;
-    public event Action<List<HexVertex>> OnPathApproved;
-    public event Action<AmbushEdge> OnAmbushConfirmed;
-
     void Awake()
     {
-        // This enforces the Singleton pattern, ensuring only one instance exists.
-        if (_instance == null)
-        {
-            _instance = this;
-            DontDestroyOnLoad(gameObject); // Persist across scene loads.
-        }
-        else if (_instance != this)
-        {
-            // If another instance already exists, destroy this duplicate.
-            Destroy(gameObject);
-        }
+        if (_instance == null) { _instance = this; DontDestroyOnLoad(gameObject); }
+        else if (_instance != this) Destroy(gameObject);
     }
 
     async void Start()
@@ -125,26 +112,26 @@ public class NetworkManager : MonoBehaviour
                         GameManager.Instance.SetRole(matchMessage.payload.role);
                         break;
 
-                    case "grid_ready":
-                        OnGridDataReady?.Invoke();
+                    case "grid_data":
+                        RaiseGridDataReady();
                         break;
 
-                    /* case "path_approved":
-                        var pm = JsonUtility.FromJson<ServerMessagePathApproved>(msg);
-                        OnPathApproved?.Invoke(pm.payload);
-                        break; */
+                    case "resource_map":
+                        var rm = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
+                        RaiseResourceMapReceived(rm.payload);
+                        break;
 
                     case "king_turn_start":
-                        GameManager.Instance.StartKingTurn();
+                        //GameManager.Instance.StartKingTurn();
                         break;
 
                     case "bandit_turn_start":
-                        GameManager.Instance.StartBanditTurn();
+                        //GameManager.Instance.StartBanditTurn();
                         break;
 
                     case "ambush_approved":
                         var ambushMessage = JsonUtility.FromJson<ServerMessageAmbushApproved>(messageString);
-                        OnAmbushConfirmed?.Invoke(ambushMessage.payload);
+                        RaiseAmbushConfirmed(ambushMessage.payload);
                         break;
 
                     case "ambush_denied":
@@ -162,10 +149,10 @@ public class NetworkManager : MonoBehaviour
                         var execMsg = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString).payload;
 
                         // 2) Gib es an den GameManager weiter (mit echten Listen, nicht JSON-Strings)
-                        GameManager.Instance.StartExecutionPhase(
+                        /* GameManager.Instance.StartExecutionPhase(
                             execMsg.kingPaths,
                             execMsg.banditAmbushes
-                        );
+                        ); */
 
 
                         var r = execMsg.winnerResourceUpdate;
@@ -187,9 +174,9 @@ public class NetworkManager : MonoBehaviour
                         {
                             if (execMsg.kingPaths != null && execMsg.kingPaths.Count > 0)
                             {
-                                var firstPath = execMsg.kingPaths[0].path;
-                                Debug.Log($"[NM] Führe ersten King-Pfad aus mit {firstPath.Count} Ecken.");
-                                CornerPathManager.Instance.ExecuteServerPath(firstPath);
+                                //var firstPath = execMsg.kingPaths[0].path;
+                                //Debug.Log($"[NM] Führe ersten King-Pfad aus mit {firstPath.Count} Ecken.");
+                                //CornerPathManager.Instance.ExecuteServerPath(firstPath);
                             }
                             else
                             {
@@ -253,7 +240,7 @@ public class NetworkManager : MonoBehaviour
     /// </summary>
     /// <param name="type">The "event name" for the server to route.</param>
     /// <param name="payloadObject">The data object to send (e.g., PathData).</param>
-    public async void Send(string type, object payloadObject)
+    public override async void Send(string type, object payloadObject)
     {
         if (websocket.State != WebSocketState.Open)
         {

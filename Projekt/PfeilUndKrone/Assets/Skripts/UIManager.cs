@@ -42,9 +42,9 @@ public class UIManager : MonoBehaviour
         {
             Debug.LogError("---!!! CRITICAL SETUP ERROR IN UIMANAGER !!!---", this.gameObject);
             Debug.LogError("--> One or more UI element references (Text, Button) are NOT assigned in the Inspector. Please select _UIManager and assign them.", this.gameObject);
-            #if UNITY_EDITOR
+#if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
-            #endif
+#endif
         }
     }
 
@@ -84,11 +84,11 @@ public class UIManager : MonoBehaviour
         infoText.text = "";
         if (GameManager.Instance.CurrentTurn == GameTurn.KingPlanning)
         {
-            CornerPathManager.Instance.SubmitPathToServer();
+            //CornerPathManager.Instance.SubmitPathToServer();
         }
         else if (GameManager.Instance.CurrentTurn == GameTurn.BanditPlanning)
         {
-            AmbushManager.Instance.FinalizeAmbushes();
+            //AmbushManager.Instance.FinalizeAmbushes();
         }
     }
 }
