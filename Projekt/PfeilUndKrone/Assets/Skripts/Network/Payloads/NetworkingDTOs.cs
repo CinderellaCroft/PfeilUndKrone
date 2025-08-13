@@ -147,7 +147,5 @@ namespace NetworkingDTOs
     }
 
     [Serializable]
-    public enum ResourceType { Castle, Moat, Wood, Brick, Sheep, Wheat, Ore, Desert }
-    [Serializable]
     public struct ResourceData { public int q; public int r; public ResourceType resource; }
 }

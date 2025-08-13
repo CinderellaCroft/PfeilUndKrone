@@ -10,7 +10,7 @@ public struct ResourcePrefabEntry
     public GameObject prefab;
 }
 
-public class GridVisualsManager : MonoBehaviour
+public class GridVisualsManager : Singleton<GridVisualsManager>
 {
     [Header("References")]
     public HexGridGenerator gridGenerator;
@@ -31,11 +31,12 @@ public class GridVisualsManager : MonoBehaviour
     private Dictionary<Hex, GameObject> hexObjects = new();
     private Dictionary<HexEdge, GameObject> hexEdgeObjects = new();
     private Dictionary<HexVertex, GameObject> hexVertexObjects = new();
-    private Dictionary<ResourceType, GameObject> _resourceMap;
+    private Dictionary<ResourceType, GameObject> resourceMap;
 
-    void Awake()
+    protected override void Awake()
     {
-        _resourceMap = resourcePrefabs
+        base.Awake();
+        resourceMap = resourcePrefabs
             .ToDictionary(e => e.type, e => e.prefab);
     }
 
@@ -47,7 +48,7 @@ public class GridVisualsManager : MonoBehaviour
         foreach (var hex in gridGenerator.Model.AllHexes)
         {
             GameObject prefab;
-            if (map.TryGetValue(hex, out var resType)) prefab = _resourceMap[resType];
+            if (map.TryGetValue(hex, out var resType)) prefab = resourceMap[resType];
             else prefab = simpleFieldPrefab;
 
             var go = Instantiate(prefab, hex.ToWorld(radius), Quaternion.identity, hexFieldContainer);

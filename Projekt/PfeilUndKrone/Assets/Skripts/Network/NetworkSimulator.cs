@@ -1,32 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using NetworkingDTOs;
-public class NetworkSimulator : NetworkServiceBase
+public class NetworkSimulator : SingletonNetworkService<NetworkSimulator>
 {
-    private static NetworkSimulator _instance;
-    public static NetworkSimulator Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                _instance = FindFirstObjectByType<NetworkSimulator>();
-
-                if (_instance == null)
-                {
-                    Debug.LogError("FATAL ERROR: An instance of NetworkSimulator is needed in the scene, but there is none. Please add the NetworkSimulator script to a GameObject.");
-                }
-            }
-            return _instance;
-        }
-    }
-
-    void Awake()
-    {
-        if (_instance == null) { _instance = this; DontDestroyOnLoad(gameObject); }
-        else if (_instance != this) Destroy(gameObject);
-    }
-
+    protected override bool EditorOnly => true;
 
     [Header("Simulations-Daten")]
     [Tooltip("Wird bei ResourceMap simuliert (q, r und ResourceType)")]

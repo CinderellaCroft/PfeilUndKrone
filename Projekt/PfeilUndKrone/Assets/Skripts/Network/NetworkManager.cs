@@ -7,36 +7,9 @@ using NetworkingDTOs;
 
 
 
-public class NetworkManager : NetworkServiceBase
+public class NetworkManager : SingletonNetworkService<NetworkSimulator>
 {
-    // --- A robust Singleton pattern to prevent script execution order issues ---
-    private static NetworkManager _instance;
-    public static NetworkManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                // Try to find the instance in the scene.
-                _instance = FindFirstObjectByType<NetworkManager>();
-
-                // If it's still null, it means the GameObject with this script is missing.
-                if (_instance == null)
-                {
-                    Debug.LogError("FATAL ERROR: An instance of NetworkManager is needed in the scene, but there is none. Please add the NetworkManager script to a GameObject.");
-                }
-            }
-            return _instance;
-        }
-    }
-
     private WebSocket websocket;
-
-    void Awake()
-    {
-        if (_instance == null) { _instance = this; DontDestroyOnLoad(gameObject); }
-        else if (_instance != this) Destroy(gameObject);
-    }
 
     async void Start()
     {

@@ -3,13 +3,12 @@ using UnityEngine.SceneManagement;
 
 public class ButtonController : MonoBehaviour
 {
-    public void start()
+    public void Start()
     {
-        //NetworkManager.Instance.Start(); 
         SceneManager.LoadScene(1);
     }
 
-    public void exit()
+    public void Exit()
     {
         Application.Quit();
     }

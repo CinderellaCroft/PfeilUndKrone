@@ -2,37 +2,17 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class UIManager : MonoBehaviour
+public class UIManager : Singleton<UIManager>
 {
-    private static UIManager _instance;
-    public static UIManager Instance
-    {
-        get
-        {
-            if (_instance == null) _instance = FindFirstObjectByType<UIManager>();
-            return _instance;
-        }
-    }
-
     [SerializeField] private TextMeshProUGUI roleText;
     [SerializeField] private TextMeshProUGUI turnStatusText;
     [SerializeField] private TextMeshProUGUI infoText;
     [SerializeField] private TextMeshProUGUI resourcesText;
     [SerializeField] private Button doneButton;
 
-    void Awake()
+    protected override void Awake()
     {
-        // This robust pattern makes it immune to race conditions
-        if (_instance == null)
-        {
-            _instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else if (_instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        base.Awake();
         ValidateReferences();
     }
 

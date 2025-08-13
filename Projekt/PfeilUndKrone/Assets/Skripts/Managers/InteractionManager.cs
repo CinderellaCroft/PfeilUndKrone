@@ -5,10 +5,8 @@ using UnityEngine;
 
 public enum InteractionMode { None, PathSelection, AmbushPlacement }
 
-public class InteractionManager : MonoBehaviour
+public class InteractionManager : Singleton<InteractionManager>
 {
-    public static InteractionManager Instance;
-
     public HexGridGenerator gridGen;
     public NetworkServiceBase net;
 
@@ -32,11 +30,9 @@ public class InteractionManager : MonoBehaviour
     private HexVertex ambushStart;
     private HashSet<HexEdge> ambushEdges = new();
 
-    void Awake()
+    protected override void Awake()
     {
-        if (Instance == null) { Instance = this; DontDestroyOnLoad(gameObject); }
-        else { Destroy(gameObject); return; }
-
+        base.Awake();
         workerObj = Instantiate(workerPrefab); workerObj.SetActive(false);
         //net.OnPathApproved += ExecuteServerPath;
         //net.OnAmbushConfirmed += ConfirmAmbushPlacement;

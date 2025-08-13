@@ -6,18 +6,8 @@ using UnityEngine;
 public enum PlayerRole { None, King, Bandit }
 public enum GameTurn { Setup, KingPlanning, BanditPlanning, Executing }
 
-public class GameManager : MonoBehaviour
+public class GameManager : Singleton<GameManager>
 {
-    private static GameManager _instance;
-    public static GameManager Instance
-    {
-        get
-        {
-            if (_instance == null) _instance = FindFirstObjectByType<GameManager>();
-            if (_instance == null) Debug.LogError("FATAL ERROR: A GameManager is needed in the scene, but there is none.");
-            return _instance;
-        }
-    }
 
     [SerializeField] NetworkServiceBase networkService;
 
@@ -39,22 +29,6 @@ public class GameManager : MonoBehaviour
     {
         networkService.OnGridDataReady -= OnGridReady;
         networkService.OnResourceMapReceived -= OnResourceMap;
-    }
-
-
-    void Awake()
-    {
-        if (_instance == null)
-        {
-            _instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else if (_instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
     }
 
     public void SetRole(string roleName)
