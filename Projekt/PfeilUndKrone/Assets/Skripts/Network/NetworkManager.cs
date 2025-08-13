@@ -7,45 +7,9 @@ using NetworkingDTOs;
 
 
 
-public class NetworkManager : MonoBehaviour
+public class NetworkManager : SingletonNetworkService<NetworkSimulator>
 {
-    // --- A robust Singleton pattern to prevent script execution order issues ---
-    private static NetworkManager _instance;
-    public static NetworkManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                // Try to find the instance in the scene.
-                _instance = FindFirstObjectByType<NetworkManager>();
-
-                // If it's still null, it means the GameObject with this script is missing.
-                if (_instance == null)
-                {
-                    Debug.LogError("FATAL ERROR: An instance of NetworkManager is needed in the scene, but there is none. Please add the NetworkManager script to a GameObject.");
-                }
-            }
-            return _instance;
-        }
-    }
-
     private WebSocket websocket;
-
-    void Awake()
-    {
-        // This enforces the Singleton pattern, ensuring only one instance exists.
-        if (_instance == null)
-        {
-            _instance = this;
-            DontDestroyOnLoad(gameObject); // Persist across scene loads.
-        }
-        else if (_instance != this)
-        {
-            // If another instance already exists, destroy this duplicate.
-            Destroy(gameObject);
-        }
-    }
 
     async void Start()
     {
@@ -99,7 +63,7 @@ public class NetworkManager : MonoBehaviour
                                 : $"Opponent found! Starting…"
                         );
                         break;
-                    
+
                     //receive lobbyID by server, log lobbyID to console -> share lobbyID with a friend
                     case "lobby_created":
                         var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
@@ -113,7 +77,7 @@ public class NetworkManager : MonoBehaviour
                         var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
                         Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} (queued={joinedMsg.payload.queued})");
                         break;
-                        
+
 
                     case "match_created":
                         var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
@@ -121,17 +85,26 @@ public class NetworkManager : MonoBehaviour
                         GameManager.Instance.SetRole(matchMessage.payload.role);
                         break;
 
+                    case "grid_data":
+                        RaiseGridDataReady();
+                        break;
+
+                    case "resource_map":
+                        var rm = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
+                        RaiseResourceMapReceived(rm.payload);
+                        break;
+
                     case "king_turn_start":
-                        GameManager.Instance.StartKingTurn();
+                        //GameManager.Instance.StartKingTurn();
                         break;
 
                     case "bandit_turn_start":
-                        GameManager.Instance.StartBanditTurn();
+                        //GameManager.Instance.StartBanditTurn();
                         break;
 
                     case "ambush_approved":
                         var ambushMessage = JsonUtility.FromJson<ServerMessageAmbushApproved>(messageString);
-                        AmbushManager.Instance.ConfirmAmbushPlacement(ambushMessage.payload);
+                        RaiseAmbushConfirmed(ambushMessage.payload);
                         break;
 
                     case "ambush_denied":
@@ -149,12 +122,12 @@ public class NetworkManager : MonoBehaviour
                         var execMsg = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString).payload;
 
                         // 2) Gib es an den GameManager weiter (mit echten Listen, nicht JSON-Strings)
-                        GameManager.Instance.StartExecutionPhase(
+                        /* GameManager.Instance.StartExecutionPhase(
                             execMsg.kingPaths,
                             execMsg.banditAmbushes
-                        );
+                        ); */
 
-                        
+
                         var r = execMsg.winnerResourceUpdate;
 
                         //ResourceUpdate
@@ -174,9 +147,9 @@ public class NetworkManager : MonoBehaviour
                         {
                             if (execMsg.kingPaths != null && execMsg.kingPaths.Count > 0)
                             {
-                                var firstPath = execMsg.kingPaths[0].path;
-                                Debug.Log($"[NM] Führe ersten King-Pfad aus mit {firstPath.Count} Ecken.");
-                                CornerPathManager.Instance.ExecuteServerPath(firstPath);
+                                //var firstPath = execMsg.kingPaths[0].path;
+                                //Debug.Log($"[NM] Führe ersten King-Pfad aus mit {firstPath.Count} Ecken.");
+                                //CornerPathManager.Instance.ExecuteServerPath(firstPath);
                             }
                             else
                             {
@@ -240,7 +213,7 @@ public class NetworkManager : MonoBehaviour
     /// </summary>
     /// <param name="type">The "event name" for the server to route.</param>
     /// <param name="payloadObject">The data object to send (e.g., PathData).</param>
-    public async void Send(string type, object payloadObject)
+    public override async void Send(string type, object payloadObject)
     {
         if (websocket.State != WebSocketState.Open)
         {
