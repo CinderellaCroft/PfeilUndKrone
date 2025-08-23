@@ -296,7 +296,7 @@ MonoBehaviour:
   - type: 0
     prefab: {fileID: 919132149155446097, guid: 85618053091bde04f8aa042eab84bd48, type: 3}
   - type: 1
-    prefab: {fileID: 919132149155446097, guid: 358983fbfb0d1554aaa4e056f328d666, type: 3}
+    prefab: {fileID: 2407626995703613287, guid: b107b7c4ebba97f4683143ae50da2eac, type: 3}
   - type: 2
     prefab: {fileID: 919132149155446097, guid: 770cbdc88a3c7094cba5b415ac903eeb, type: 3}
   - type: 3
@@ -304,11 +304,13 @@ MonoBehaviour:
   - type: 4
     prefab: {fileID: 919132149155446097, guid: 6b2956596f690d64797601b89637dae1, type: 3}
   - type: 5
-    prefab: {fileID: 919132149155446097, guid: e1303c157902feb418d8f7dd3ed0c392, type: 3}
+    prefab: {fileID: 919132149155446097, guid: ba9d5912b28df864a95e565a18b5ee98, type: 3}
   - type: 6
     prefab: {fileID: 919132149155446097, guid: fdacbd71888966949bf6e81d459601ef, type: 3}
   - type: 7
     prefab: {fileID: 919132149155446097, guid: b47ebfcc404381c4c9908318e7a9321a, type: 3}
+  - type: 0
+    prefab: {fileID: 919132149155446097, guid: 9f1fb143cec605449b8986a865f6b057, type: 3}
   vertexMarkerPrefab: {fileID: 4584628830818376186, guid: 180a620930ade454c8bcf5c0e4f01742, type: 3}
   edgeMarkerPrefab: {fileID: 4584628830818376186, guid: a0c294a1e604fac4d8cdbd21db76d7e1, type: 3}
 --- !u!1 &653193444
