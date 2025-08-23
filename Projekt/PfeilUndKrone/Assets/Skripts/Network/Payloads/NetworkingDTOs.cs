@@ -35,6 +35,27 @@ namespace NetworkingDTOs
         public MatchCreatedPayload payload;
     }
 
+
+    /////////////////////////////////////
+    //////// Resources Received ///////// 
+    /////////////////////////////////////
+    /// 
+    /// 
+    [Serializable]
+    public struct ResourceData { public int q; public int r; public ResourceType resource; }
+
+    [Serializable]
+    public class ServerMessageResourceMap
+    {
+        public string type;          // "resource_map"
+        public int seed;             // forwarded from server
+        public List<ResourceData> map;
+    }
+
+    /////////////////////////////////////
+    ///////////////////////////////////// 
+    /////////////////////////////////////
+
     [Serializable]
     public class ResourcePayload
     {
@@ -139,13 +160,6 @@ namespace NetworkingDTOs
         public LobbyJoinedPayload payload;
     }
 
-    [Serializable]
-    public class ServerMessageResourceMap
-    {
-        public string type;
-        public List<ResourceData> payload;
-    }
 
-    [Serializable]
-    public struct ResourceData { public int q; public int r; public ResourceType resource; }
+
 }

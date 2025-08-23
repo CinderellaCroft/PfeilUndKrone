@@ -89,10 +89,19 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                         RaiseGridDataReady();
                         break;
 
+                    // case "resource_map":
+                    //     var rm = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
+                    //     RaiseResourceMapReceived(rm.payload);
+                    //     break;
+
                     case "resource_map":
-                        var rm = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
-                        RaiseResourceMapReceived(rm.payload);
-                        break;
+                        {
+                            RaiseGridDataReady();
+                            Debug.Log("###############################################\nresource_map received!\n##########################");
+                            var rm = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
+                            RaiseResourceMapReceived(rm.map);
+                            break;
+                        }
 
                     case "king_turn_start":
                         //GameManager.Instance.StartKingTurn();

@@ -42,17 +42,16 @@ public class GameManager : Singleton<GameManager>
 
     void OnGridReady()
     {
+        Debug.Log("GAMEMANAGER: OnGridReady()");
         gridGenerator.GenerateGrid();
+
     }
 
     void OnResourceMap(List<ResourceData> mapData)
     {
+        Debug.Log("GAMEMANAGER: OnResourceMap()\n!\n!");
         // Build map
         resourceMap = mapData.ToDictionary(rd => new Hex(rd.q, rd.r), rd => rd.resource);
-        foreach (var rd in mapData)
-        {
-            resourceMap[new Hex(rd.q, rd.r)] = rd.resource;
-        }
 
         // Initialize visuals and interactions
         visualsManager.InitializeVisuals(resourceMap);
