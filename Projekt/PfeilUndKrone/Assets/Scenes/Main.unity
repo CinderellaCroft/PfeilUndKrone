@@ -1347,7 +1347,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridGen: {fileID: 88634056}
-  net: {fileID: 1828881144}
+  net: {fileID: 1920741220}
   workerPrefab: {fileID: 2851964114763607541, guid: 63fb6c277f80d1140b502224c213644f, type: 3}
   workerSpeed: 1
   ambushLineMaterial: {fileID: 0}
