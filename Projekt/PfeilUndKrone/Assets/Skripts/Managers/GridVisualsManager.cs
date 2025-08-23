@@ -20,9 +20,8 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     public Transform hexFieldContainer;
 
     [Header("Prefabs")]
-    public GameObject castlePrefab;
-    public GameObject castleMoatPrefab;
-    public GameObject simpleFieldPrefab;
+
+    public GameObject desertPrefab;
     public List<ResourcePrefabEntry> resourcePrefabs;
     public GameObject vertexMarkerPrefab;
     public GameObject edgeMarkerPrefab;
@@ -49,7 +48,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         {
             GameObject prefab;
             if (map.TryGetValue(hex, out var resType)) prefab = resourceMap[resType];
-            else prefab = simpleFieldPrefab;
+            else prefab = desertPrefab;
 
             var go = Instantiate(prefab, hex.ToWorld(radius), Quaternion.identity, hexFieldContainer);
             go.name = hex.ToString();
