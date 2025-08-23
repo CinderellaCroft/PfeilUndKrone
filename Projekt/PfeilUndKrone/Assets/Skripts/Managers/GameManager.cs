@@ -58,22 +58,24 @@ public class GameManager : Singleton<GameManager>
         interactionManager.EnableInteraction(MyRole);
     }
 
-    /* public void StartKingTurn()
+    public void StartKingTurn()
     {
+        Debug.Log($"GAMEMANAGER: StartKingTurn() called. MyRole: {MyRole}");
         CurrentTurn = GameTurn.KingPlanning;
-        UIManager.Instance.UpdateTurnStatus("King's Turn: Place Workers");
-        CornerPathManager.Instance.EnablePathSelection();
-        AmbushManager.Instance.DisableAmbushPlacement();
+        UIManager.Instance.UpdateTurnStatus("King's Turn: Select Path");
+        interactionManager.EnableInteraction(PlayerRole.King);
         if (MyRole == PlayerRole.King) UIManager.Instance.SetDoneButtonActive(true);
+        Debug.Log($"GAMEMANAGER: King turn started. CurrentTurn: {CurrentTurn}");
     }
 
     public void StartBanditTurn()
     {
+        Debug.Log($"GAMEMANAGER: StartBanditTurn() called. MyRole: {MyRole}");
         CurrentTurn = GameTurn.BanditPlanning;
         UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
-        CornerPathManager.Instance.DisablePathSelection();
-        AmbushManager.Instance.EnableAmbushPlacement();
+        interactionManager.EnableInteraction(PlayerRole.Bandit);
         if (MyRole == PlayerRole.Bandit) UIManager.Instance.SetDoneButtonActive(true);
+        Debug.Log($"GAMEMANAGER: Bandit turn started. CurrentTurn: {CurrentTurn}");
     }
 
     public void StartExecutionPhase(List<PathData> kingPaths, List<AmbushEdge> banditAmbushes)
@@ -81,21 +83,23 @@ public class GameManager : Singleton<GameManager>
         CurrentTurn = GameTurn.Executing;
         UIManager.Instance.UpdateTurnStatus("Executing Round...");
         UIManager.Instance.SetDoneButtonActive(false);
-        CornerPathManager.Instance.DisablePathSelection();
-        AmbushManager.Instance.DisableAmbushPlacement();
+        interactionManager.DisableInteraction();
 
         Debug.Log("Executing round with King paths:");
         foreach (var pd in kingPaths)
             foreach (var c in pd.path)
-                Debug.Log($"  Corner: ({c.q},{c.r},{c.i})");
+                Debug.Log($"  Corner: ({c.Hex.Q},{c.Hex.R},{c.Direction})");
 
         Debug.Log("And Bandit ambushes:");
         foreach (var amb in banditAmbushes)
-            Debug.Log($"  Ambush: ({amb.cornerA.q},{amb.cornerA.r},{amb.cornerA.i}) ↔ ({amb.cornerB.q},{amb.cornerB.r},{amb.cornerB.i})");
+            Debug.Log($"  Ambush: ({amb.cornerA.Hex.Q},{amb.cornerA.Hex.R},{amb.cornerA.Direction}) ↔ ({amb.cornerB.Hex.Q},{amb.cornerB.Hex.R},{amb.cornerB.Direction})");
 
-        // Hier kannst du dann starten, welche Pfade ausgeführt werden sollen
-        // z.B. Worker loslaufen lassen:
-        if (kingPaths.Count > 0)
-            CornerPathManager.Instance.ExecuteServerPath(kingPaths[0].path);
-    } */
+        if (kingPaths.Count > 0 && kingPaths[0].path.Count > 0)
+            ExecuteWorkerPath(kingPaths[0].path);
+    }
+
+    private void ExecuteWorkerPath(List<HexVertex> path)
+    {
+        interactionManager.ExecuteServerPath(path);
+    }
 }

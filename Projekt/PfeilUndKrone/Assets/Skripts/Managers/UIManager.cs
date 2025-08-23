@@ -64,11 +64,11 @@ public class UIManager : Singleton<UIManager>
         infoText.text = "";
         if (GameManager.Instance.CurrentTurn == GameTurn.KingPlanning)
         {
-            //CornerPathManager.Instance.SubmitPathToServer();
+            InteractionManager.Instance.SubmitPath();
         }
         else if (GameManager.Instance.CurrentTurn == GameTurn.BanditPlanning)
         {
-            //AmbushManager.Instance.FinalizeAmbushes();
+            InteractionManager.Instance.FinalizeAmbushes();
         }
     }
 }

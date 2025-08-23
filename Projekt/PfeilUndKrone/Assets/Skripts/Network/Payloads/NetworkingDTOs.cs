@@ -82,7 +82,7 @@ namespace NetworkingDTOs
     [Serializable]
     public class ExecuteRoundPayload
     {
-        public List<HexEdge> kingPaths;
+        public SerializablePathData[] kingPaths; // Array of path objects from server
         public List<HexEdge> banditAmbushes;
         public List<HexEdge> outcome;
         public ResourcePayload winnerResourceUpdate;
@@ -131,6 +131,53 @@ namespace NetworkingDTOs
     }
 
 
+
+    [Serializable]
+    public class PathData
+    {
+        public List<HexVertex> path;
+    }
+
+    [Serializable]
+    public class SerializableHexVertex
+    {
+        public int q;
+        public int r;
+        public int direction; // VertexDirection as int
+
+        public SerializableHexVertex() { }
+        
+        public SerializableHexVertex(HexVertex vertex)
+        {
+            q = vertex.Hex.Q;
+            r = vertex.Hex.R;
+            direction = (int)vertex.Direction;
+        }
+
+        public HexVertex ToHexVertex()
+        {
+            return new HexVertex(new Hex(q, r), (VertexDirection)direction);
+        }
+    }
+
+    [Serializable]
+    public class SerializablePathData
+    {
+        public SerializableHexVertex[] path;
+    }
+
+    [Serializable]
+    public class PlaceWorkersPayload
+    {
+        public SerializablePathData[] paths; // Array of path objects
+    }
+
+    [Serializable]
+    public class AmbushEdge
+    {
+        public HexVertex cornerA;
+        public HexVertex cornerB;
+    }
 
     [Serializable]
     public class LobbyJoinedPayload

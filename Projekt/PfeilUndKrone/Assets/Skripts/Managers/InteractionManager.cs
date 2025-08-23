@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using NetworkingDTOs;
 
 public enum InteractionMode { None, PathSelection, AmbushPlacement }
 
@@ -48,10 +49,12 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void EnableInteraction(PlayerRole role)
     {
+        Debug.Log($"INTERACTIONMANAGER: EnableInteraction called with role: {role}");
         if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
         else if (role == PlayerRole.Bandit) currentMode = InteractionMode.AmbushPlacement;
         else currentMode = InteractionMode.None;
 
+        Debug.Log($"INTERACTIONMANAGER: Interaction mode set to: {currentMode}");
         ResetState();
         workerObj.SetActive(false);
     }
@@ -73,49 +76,136 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void OnVertexClicked(HexVertex v)
     {
+        Debug.Log($"INTERACTIONMANAGER: Vertex clicked: {v}, CurrentMode: {currentMode}");
         if (currentMode == InteractionMode.PathSelection) HandlePathClick(v);
         else if (currentMode == InteractionMode.AmbushPlacement) HandleAmbushClick(v);
     }
 
     void HandlePathClick(HexVertex v)
     {
+        Debug.Log($"INTERACTIONMANAGER: HandlePathClick called for vertex: {v}");
+        Debug.Log($"INTERACTIONMANAGER: pathComplete: {pathComplete}, isMoving: {isMoving}, selectedVertices count: {selectedVertices.Count}");
+        
         if (pathComplete || isMoving) return;
 
         if (!selectedVertices.Any())
         {
+            Debug.Log($"INTERACTIONMANAGER: Starting new path with vertex: {v}");
             selectedVertices.Add(v);
             validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v));
+            Debug.Log($"INTERACTIONMANAGER: Found {validNextVertices.Count} neighbor vertices");
             return;
         }
-        if (!validNextVertices.Contains(v)) { validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last())); return; }
+        if (!validNextVertices.Contains(v)) { 
+            Debug.Log($"INTERACTIONMANAGER: Invalid vertex selection. Resetting to neighbors of last selected vertex.");
+            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last())); 
+            return; 
+        }
 
+        Debug.Log($"INTERACTIONMANAGER: Adding vertex to path: {v}");
         selectedVertices.Add(v);
-        if (centralVertices.Contains(v)) pathComplete = true;
+        if (centralVertices.Contains(v)) {
+            Debug.Log($"INTERACTIONMANAGER: Path completed! Connected to center.");
+            pathComplete = true;
+        }
         validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v).Except(selectedVertices));
+        Debug.Log($"INTERACTIONMANAGER: Path now has {selectedVertices.Count} vertices, {validNextVertices.Count} valid next vertices");
     }
 
     public void SubmitPath()
     {
         if (!pathComplete) return;
-        net.Send("place_workers", selectedVertices.ToList());
+        Debug.Log($"INTERACTIONMANAGER: Submitting path with {selectedVertices.Count} vertices");
+        foreach (var vertex in selectedVertices)
+        {
+            Debug.Log($"INTERACTIONMANAGER: Path vertex: {vertex}");
+        }
+        var serializableVertices = selectedVertices.Select(v => new SerializableHexVertex(v)).ToArray();
+        
+        // Test individual vertex serialization
+        if (serializableVertices.Length > 0)
+        {
+            Debug.Log($"INTERACTIONMANAGER: Testing single vertex: {JsonUtility.ToJson(serializableVertices[0])}");
+        }
+        
+        var pathData = new PlaceWorkersPayload 
+        { 
+            paths = new SerializablePathData[] 
+            { 
+                new SerializablePathData { path = serializableVertices }
+            }
+        };
+        Debug.Log($"INTERACTIONMANAGER: Serialized payload: {JsonUtility.ToJson(pathData)}");
+        
+        // Alternative: Create simple manual JSON as backup
+        var manualJson = "{\"paths\":[[";
+        for (int i = 0; i < serializableVertices.Length; i++)
+        {
+            var v = serializableVertices[i];
+            manualJson += $"{{\"q\":{v.q},\"r\":{v.r},\"direction\":{v.direction}}}";
+            if (i < serializableVertices.Length - 1) manualJson += ",";
+        }
+        manualJson += "]]}";
+        Debug.Log($"INTERACTIONMANAGER: Manual JSON: {manualJson}");
+        
+        net.Send("place_workers", pathData);
         DisableInteraction();
     }
 
-    void ExecuteServerPath(List<HexVertex> path)
+    public void ExecuteServerPath(List<HexVertex> path)
     {
+        Debug.Log($"INTERACTIONMANAGER: ExecuteServerPath called with {path.Count} vertices");
         serverPathWorld = path.Select(v => v.ToWorld(gridGen.hexRadius)).ToList();
         if (!serverPathWorld.Any()) return;
+        
+        Debug.Log($"INTERACTIONMANAGER: Starting position: {serverPathWorld[0]}");
+        Debug.Log($"INTERACTIONMANAGER: Worker object: {workerObj?.name}");
+        
         workerObj.transform.position = serverPathWorld[0];
         workerObj.SetActive(true);
         isMoving = true; pathStep = 0;
+        
+        Debug.Log($"INTERACTIONMANAGER: Worker activated at position: {workerObj.transform.position}");
+        Debug.Log($"INTERACTIONMANAGER: Worker active state: {workerObj.activeInHierarchy}");
     }
 
     void MoveWorker()
     {
+        if (pathStep >= serverPathWorld.Count) 
+        {
+            Debug.Log("INTERACTIONMANAGER: Worker movement completed");
+            isMoving = false; 
+            workerObj.SetActive(false); 
+            ResetState(); 
+            return;
+        }
+        
         var curr = workerObj.transform.position;
-        var targ = serverPathWorld[++pathStep];
+        var targ = serverPathWorld[pathStep];
+        
+        // Debug every few frames to avoid spam
+        if (Time.frameCount % 60 == 0)
+        {
+            Debug.Log($"INTERACTIONMANAGER: Moving worker - Step: {pathStep}, Current: {curr}, Target: {targ}");
+        }
+        
+        // Visual debug - draw a line to show worker path
+        Debug.DrawLine(curr, targ, Color.red, 0.1f);
+        
         workerObj.transform.position = Vector3.MoveTowards(curr, targ, workerSpeed * Time.deltaTime);
-        if (Vector3.Distance(curr, targ) < 0.01f) if (pathStep >= serverPathWorld.Count - 1) { isMoving = false; workerObj.SetActive(false); ResetState(); }
+        
+        if (Vector3.Distance(curr, targ) < 0.01f) 
+        {
+            pathStep++;
+            Debug.Log($"INTERACTIONMANAGER: Reached target {pathStep-1}, moving to step {pathStep}");
+            if (pathStep >= serverPathWorld.Count) 
+            { 
+                Debug.Log("INTERACTIONMANAGER: Worker movement completed");
+                isMoving = false; 
+                workerObj.SetActive(false); 
+                ResetState(); 
+            }
+        }
     }
 
     IEnumerable<HexVertex> GetNeighborVertices(HexVertex v)
@@ -160,7 +250,6 @@ public class InteractionManager : Singleton<InteractionManager>
 
     void ResetState()
     {
-        currentMode = InteractionMode.None;
         selectedVertices.Clear(); validNextVertices.Clear(); pathComplete = false;
         isMoving = false; workerObj?.SetActive(false);
         ambushStart = default; ambushEdges.Clear();
