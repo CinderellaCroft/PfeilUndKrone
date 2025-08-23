@@ -2,6 +2,7 @@ using UnityEngine;
 using NativeWebSocket;
 using System.Collections.Generic;
 using System;
+using System.Linq;
 using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
 using NetworkingDTOs;
 using System.Linq;
@@ -163,11 +164,11 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     //     }
 
                     case "king_turn_start":
-                        //GameManager.Instance.StartKingTurn();
+                        GameManager.Instance.StartKingTurn();
                         break;
 
                     case "bandit_turn_start":
-                        //GameManager.Instance.StartBanditTurn();
+                        GameManager.Instance.StartBanditTurn();
                         break;
 
                     case "ambush_approved":
@@ -213,15 +214,18 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                         // 3) Nun direkt den ersten King-Pfad ausführen
                         UnityMainThreadDispatcher.Instance().Enqueue(() =>
                         {
-                            if (execMsg.kingPaths != null && execMsg.kingPaths.Count > 0)
+                            if (execMsg.kingPaths != null && execMsg.kingPaths.Length > 0)
                             {
-                                //var firstPath = execMsg.kingPaths[0].path;
-                                //Debug.Log($"[NM] Führe ersten King-Pfad aus mit {firstPath.Count} Ecken.");
-                                //CornerPathManager.Instance.ExecuteServerPath(firstPath);
+                                var firstPath = execMsg.kingPaths[0].path;
+                                Debug.Log($"[NM] Executing first King path with {firstPath.Length} vertices.");
+                                
+                                // Convert SerializableHexVertex[] back to List<HexVertex>
+                                var hexVertexPath = firstPath.Select(v => v.ToHexVertex()).ToList();
+                                InteractionManager.Instance.ExecuteServerPath(hexVertexPath);
                             }
                             else
                             {
-                                Debug.LogWarning("[NM] Keine kingPaths im execute_round-Payload.");
+                                Debug.LogWarning("[NM] No kingPaths in execute_round payload.");
                             }
                         });
                         break;
