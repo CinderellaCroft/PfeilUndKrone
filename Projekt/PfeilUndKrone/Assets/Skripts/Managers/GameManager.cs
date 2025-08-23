@@ -47,6 +47,7 @@ public class GameManager : Singleton<GameManager>
 
     }
 
+
     void OnResourceMap(List<ResourceData> mapData)
     {
         var counts = new Dictionary<ResourceType, int>();
@@ -72,19 +73,7 @@ public class GameManager : Singleton<GameManager>
                 resourceMap[hex] = rd.resource;
             }
 
-            // per-entry mapping log
-            // Debug.Log($"Map entry: Hex({rd.q},{rd.r}) -> {rd.resource}");
         }
-
-        // summary
-        // Debug.Log($"Unique hexes: {resourceMap.Count} | Duplicates: {dupes.Count}");
-        // foreach (var kv in counts.OrderByDescending(kv => kv.Value))
-        //     Debug.Log($"{kv.Key}: {kv.Value}");
-
-        // if (dupes.Count > 0)
-        //     Debug.LogWarning("Duplicate hex assignments:\n" + string.Join("\n", dupes));
-
-        // Initialize visuals and interactions
         visualsManager.InitializeVisuals(resourceMap);
         interactionManager.EnableInteraction(MyRole);
     }
@@ -125,8 +114,8 @@ public class GameManager : Singleton<GameManager>
         foreach (var amb in banditAmbushes)
             Debug.Log($"  Ambush: ({amb.cornerA.q},{amb.cornerA.r},{amb.cornerA.i}) ↔ ({amb.cornerB.q},{amb.cornerB.r},{amb.cornerB.i})");
 
-        // Hier kannst du dann starten, welche Pfade ausgeführt werden sollen
-        // z.B. Worker loslaufen lassen:
+        Hier kannst du dann starten, welche Pfade ausgeführt werden sollen
+        z.B. Worker loslaufen lassen:
         if (kingPaths.Count > 0)
             CornerPathManager.Instance.ExecuteServerPath(kingPaths[0].path);
     } */

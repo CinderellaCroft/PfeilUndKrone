@@ -90,41 +90,44 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             var hm = go.AddComponent<HexMarker>(); hm.hex = hex; hm.interaction = interactionManager;
             hexObjects[hex] = go;
         }
+
+
+        // foreach (var hex in gridGenerator.Model.AllHexes)
+        // {
+        //     GameObject prefab;
+        //     if (map.TryGetValue(hex, out var resType)) prefab = resourceMap[resType];
+        //     else prefab = desertPrefab;
+
+        //     var go = Instantiate(prefab, hex.ToWorld(radius), Quaternion.identity, hexFieldContainer); //line 54
+        //     go.name = hex.ToString();
+        //     var hm = go.AddComponent<HexMarker>(); hm.hex = hex; hm.interaction = interactionManager;
+        //     hexObjects[hex] = go;
+        // }
+
+        foreach (var vertex in gridGenerator.Model.AllVertices)
+        {
+            var pos = vertex.ToWorld(radius);
+            var go = Instantiate(vertexMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
+            go.name = vertex.ToString();
+            var vm = go.AddComponent<VertexMarker>(); vm.vertex = vertex; vm.interaction = interactionManager;
+            hexVertexObjects[vertex] = go;
+        }
+
+        foreach (var edge in gridGenerator.Model.AllEdges)
+        {
+            var pos = edge.ToWorld(radius);
+            var go = Instantiate(edgeMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
+            go.name = edge.ToString();
+            var em = go.AddComponent<EdgeMarker>(); em.edge = edge; em.interaction = interactionManager;
+            hexEdgeObjects[edge] = go;
+            go.SetActive(false);
+        }
     }
 
 
+    // 
 
-    // foreach (var hex in gridGenerator.Model.AllHexes)
-    // {
-    //     GameObject prefab;
-    //     if (map.TryGetValue(hex, out var resType)) prefab = resourceMap[resType];
-    //     else prefab = desertPrefab;
-
-    //     var go = Instantiate(prefab, hex.ToWorld(radius), Quaternion.identity, hexFieldContainer); //line 54
-    //     go.name = hex.ToString();
-    //     var hm = go.AddComponent<HexMarker>(); hm.hex = hex; hm.interaction = interactionManager;
-    //     hexObjects[hex] = go;
-    // }
-
-    // foreach (var vertex in gridGenerator.Model.AllVertices)
-    // {
-    //     var pos = vertex.ToWorld(radius);
-    //     var go = Instantiate(vertexMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
-    //     go.name = vertex.ToString();
-    //     var vm = go.AddComponent<VertexMarker>(); vm.vertex = vertex; vm.interaction = interactionManager;
-    //     hexVertexObjects[vertex] = go;
-    // }
-
-    //     foreach (var edge in gridGenerator.Model.AllEdges)
-    //     {
-    //         var pos = edge.ToWorld(radius);
-    //         var go = Instantiate(edgeMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
-    //         go.name = edge.ToString();
-    //         var em = go.AddComponent<EdgeMarker>(); em.edge = edge; em.interaction = interactionManager;
-    //         hexEdgeObjects[edge] = go;
-    //         go.SetActive(false);
-    //     }
-    // }
+    // 
 
     void ClearPrevious()
     {
