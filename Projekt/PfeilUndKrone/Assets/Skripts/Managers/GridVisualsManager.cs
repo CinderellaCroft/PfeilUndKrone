@@ -23,6 +23,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
 
     public GameObject desertPrefab;
     public List<ResourcePrefabEntry> resourcePrefabs;
+    public List<GameObject> unknownResourcePrefabs;
     public GameObject vertexMarkerPrefab;
     public GameObject edgeMarkerPrefab;
 
