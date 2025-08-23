@@ -1,0 +1,377 @@
+fileFormatVersion: 2
+guid: a387a2bd26fe25340a50bd40191faa05
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 113686563746045199
+    second: "F\xFCllfeld8_0"
+  - first:
+      213: -395621516398206587
+    second: "F\xFCllfeld8_1"
+  - first:
+      213: -5134306419402310089
+    second: "F\xFCllfeld8_2"
+  - first:
+      213: 7254922368053969389
+    second: "F\xFCllfeld8_3"
+  - first:
+      213: -1357136693381860844
+    second: "F\xFCllfeld8_4"
+  - first:
+      213: -2350184408582515178
+    second: "F\xFCllfeld8_5"
+  - first:
+      213: -2212695140646494399
+    second: "F\xFCllfeld8_6"
+  - first:
+      213: -3989150636141568005
+    second: "F\xFCllfeld8_7"
+  - first:
+      213: -675276185973097997
+    second: "F\xFCllfeld8_8"
+  - first:
+      213: 991698868200349997
+    second: "F\xFCllfeld8_9"
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 1
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 0
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_0"
+      rect:
+        serializedVersion: 2
+        x: 568
+        y: 1239
+        width: 277
+        height: 191
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f0d51dfc355e39100800000000000000
+      internalID: 113686563746045199
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_1"
+      rect:
+        serializedVersion: 2
+        x: 1602
+        y: 1083
+        width: 146
+        height: 124
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5816591b358728af0800000000000000
+      internalID: -395621516398206587
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_2"
+      rect:
+        serializedVersion: 2
+        x: 1664
+        y: 1207
+        width: 15
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 73e7487a3874fb8b0800000000000000
+      internalID: -5134306419402310089
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_3"
+      rect:
+        serializedVersion: 2
+        x: 1747
+        y: 1161
+        width: 9
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: de184ec9479aea460800000000000000
+      internalID: 7254922368053969389
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_4"
+      rect:
+        serializedVersion: 2
+        x: 1587
+        y: 1106
+        width: 17
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 41273572e5b7a2de0800000000000000
+      internalID: -1357136693381860844
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_5"
+      rect:
+        serializedVersion: 2
+        x: 1364
+        y: 631
+        width: 11
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 61617c17bb7726fd0800000000000000
+      internalID: -2350184408582515178
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_6"
+      rect:
+        serializedVersion: 2
+        x: 1384
+        y: 627
+        width: 12
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 14f58813e7dea41e0800000000000000
+      internalID: -2212695140646494399
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_7"
+      rect:
+        serializedVersion: 2
+        x: 1102
+        y: 33
+        width: 637
+        height: 583
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bff1241c1a0b3a8c0800000000000000
+      internalID: -3989150636141568005
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_8"
+      rect:
+        serializedVersion: 2
+        x: 1266
+        y: 274
+        width: 13
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3f9fac9f2efe0a6f0800000000000000
+      internalID: -675276185973097997
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "F\xFCllfeld8_9"
+      rect:
+        serializedVersion: 2
+        x: 1450
+        y: 258
+        width: 9
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d212d3bcdd833cd00800000000000000
+      internalID: 991698868200349997
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      "F\xFCllfeld8_0": 113686563746045199
+      "F\xFCllfeld8_1": -395621516398206587
+      "F\xFCllfeld8_2": -5134306419402310089
+      "F\xFCllfeld8_3": 7254922368053969389
+      "F\xFCllfeld8_4": -1357136693381860844
+      "F\xFCllfeld8_5": -2350184408582515178
+      "F\xFCllfeld8_6": -2212695140646494399
+      "F\xFCllfeld8_7": -3989150636141568005
+      "F\xFCllfeld8_8": -675276185973097997
+      "F\xFCllfeld8_9": 991698868200349997
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

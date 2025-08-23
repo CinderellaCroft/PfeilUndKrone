@@ -301,6 +301,7 @@ MonoBehaviour:
     prefab: {fileID: 5283919807250791745, guid: acee70b77760faf45b2864edd64e2d91, type: 3}
   - type: 7
     prefab: {fileID: 4293633171650246946, guid: 095ad53ceef7a9242bb555b88eef93f6, type: 3}
+  unknownResourcePrefabs: []
   vertexMarkerPrefab: {fileID: 4584628830818376186, guid: 180a620930ade454c8bcf5c0e4f01742, type: 3}
   edgeMarkerPrefab: {fileID: 4584628830818376186, guid: a0c294a1e604fac4d8cdbd21db76d7e1, type: 3}
 --- !u!1 &653193444
