@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System;
 using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
 using NetworkingDTOs;
-
+using System.Linq;
 
 
 public class NetworkManager : SingletonNetworkService<NetworkSimulator>
@@ -96,12 +96,71 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
 
                     case "resource_map":
                         {
+                            Debug.Log("resource_map received (raw): " + messageString);
+                            var resMsg = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
+
+                            if (resMsg?.payload?.map == null)
+                            {
+                                Debug.LogError("resource_map: deserialization failed or payload.map is null");
+                                break;
+                            }
+
+                            var list = new List<ResourceData>();
+                            foreach (var rd in resMsg.payload.map)
+                            {
+                                if (!Enum.TryParse<ResourceType>(rd.resource, true, out var parsed))
+                                    parsed = ResourceType.Desert; // fallback
+                                list.Add(new ResourceData { q = rd.q, r = rd.r, resource = parsed });
+                            }
+
+                            Debug.Log($"resource_map parsed: {list.Count} entries");
+                            foreach (var rd in list)
+                                Debug.Log($"Hex({rd.q},{rd.r}) -> {rd.resource}");
+
+                            var counts = list.GroupBy(rd => rd.resource)
+                                            .ToDictionary(g => g.Key, g => g.Count());
+                            foreach (var kv in counts)
+                                Debug.Log($"Resource {kv.Key}: {kv.Value}");
+
                             RaiseGridDataReady();
-                            Debug.Log("###############################################\nresource_map received!\n##########################");
-                            var rm = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
-                            RaiseResourceMapReceived(rm.map);
+                            RaiseResourceMapReceived(list);
                             break;
                         }
+
+
+
+                    // case "resource_map":
+                    //     {
+                    //         Debug.Log("resource_map received (raw): " + messageString);
+                    //         var resMsg = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
+
+                    //         if (resMsg == null || resMsg.payload == null || resMsg.payload.map == null)
+                    //         {
+                    //             Debug.LogError("resource_map: deserialization failed or payload.map is null");
+                    //             break;
+                    //         }
+
+                    //         var list = resMsg.payload.map;
+                    //         Debug.Log($"resource_map parsed: {list.Count} entries");
+
+                    //         // log each resource
+                    //         foreach (var rd in list)
+                    //         {
+                    //             Debug.Log($"Hex({rd.q},{rd.r}) -> {rd.resource}");
+                    //         }
+
+                    //         // summary counts by type
+                    //         var counts = list.GroupBy(rd => rd.resource)
+                    //                         .ToDictionary(g => g.Key, g => g.Count());
+                    //         foreach (var kv in counts)
+                    //         {
+                    //             Debug.Log($"Resource {kv.Key}: {kv.Value}");
+                    //         }
+
+                    //         RaiseGridDataReady();
+                    //         RaiseResourceMapReceived(list);
+                    //         break;
+                    //     }
 
                     case "king_turn_start":
                         //GameManager.Instance.StartKingTurn();

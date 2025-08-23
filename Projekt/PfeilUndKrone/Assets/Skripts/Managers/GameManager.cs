@@ -49,14 +49,46 @@ public class GameManager : Singleton<GameManager>
 
     void OnResourceMap(List<ResourceData> mapData)
     {
-        Debug.Log("GAMEMANAGER: OnResourceMap()\n!\n!");
-        // Build map
-        resourceMap = mapData.ToDictionary(rd => new Hex(rd.q, rd.r), rd => rd.resource);
+        var counts = new Dictionary<ResourceType, int>();
+        var dupes = new List<string>();
+        resourceMap = new Dictionary<Hex, ResourceType>();
+
+        // Debug.Log("##########################\nONRESOURCEMAP\n####################");
+
+        foreach (var rd in mapData)
+        {
+            var hex = new Hex(rd.q, rd.r);
+
+            // count by resource type
+            counts[rd.resource] = counts.TryGetValue(rd.resource, out var c) ? c + 1 : 1;
+
+            // detect duplicates before insert
+            if (resourceMap.TryGetValue(hex, out var existing))
+            {
+                dupes.Add($"({rd.q},{rd.r}) was {existing} → now {rd.resource}");
+            }
+            else
+            {
+                resourceMap[hex] = rd.resource;
+            }
+
+            // per-entry mapping log
+            // Debug.Log($"Map entry: Hex({rd.q},{rd.r}) -> {rd.resource}");
+        }
+
+        // summary
+        // Debug.Log($"Unique hexes: {resourceMap.Count} | Duplicates: {dupes.Count}");
+        // foreach (var kv in counts.OrderByDescending(kv => kv.Value))
+        //     Debug.Log($"{kv.Key}: {kv.Value}");
+
+        // if (dupes.Count > 0)
+        //     Debug.LogWarning("Duplicate hex assignments:\n" + string.Join("\n", dupes));
 
         // Initialize visuals and interactions
         visualsManager.InitializeVisuals(resourceMap);
         interactionManager.EnableInteraction(MyRole);
     }
+
 
     /* public void StartKingTurn()
     {

@@ -1,4 +1,4 @@
 using System;
 
 [Serializable]
-public enum ResourceType { Castle, Moat, Wood, Brick, Sheep, Wheat, Ore, Desert }
+public enum ResourceType { KingCastle, BanditCastle, KingMoat, BanditMoat, Wood, Wheat, Ore, Desert }

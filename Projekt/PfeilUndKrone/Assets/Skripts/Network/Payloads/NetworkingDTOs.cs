@@ -39,18 +39,44 @@ namespace NetworkingDTOs
     /////////////////////////////////////
     //////// Resources Received ///////// 
     /////////////////////////////////////
-    /// 
-    /// 
-    [Serializable]
-    public struct ResourceData { public int q; public int r; public ResourceType resource; }
-
     [Serializable]
     public class ServerMessageResourceMap
     {
-        public string type;          // "resource_map"
-        public int seed;             // forwarded from server
-        public List<ResourceData> map;
+        public string type;
+        public ResourceMapPayload payload;
     }
+
+    [Serializable]
+    public class ResourceMapPayload
+    {
+        public long seed;
+        public List<ResourceDataJson> map;
+    }
+
+    // Incoming version (resource still a string!)
+    [Serializable]
+    public class ResourceDataJson
+    {
+        public int q;
+        public int r;
+        public string resource;
+    }
+
+    // Internal version you actually use everywhere
+    [Serializable]
+    public struct ResourceData
+    {
+        public int q;
+        public int r;
+        public ResourceType resource;
+    }
+
+    // [Serializable]
+    // public struct ResourceData { public int q; public int r; public ResourceType resource; }
+
+    // [Serializable] class ServerMessageResourceMap { public string type; public ResourceMapPayload payload; }
+    // [Serializable] class ResourceMapPayload { public long seed; public List<ResourceData> map; }
+
 
     /////////////////////////////////////
     ///////////////////////////////////// 
