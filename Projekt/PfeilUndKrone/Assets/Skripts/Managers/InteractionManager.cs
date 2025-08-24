@@ -29,6 +29,7 @@ public class InteractionManager : Singleton<InteractionManager>
     private bool isMoving;
 
     private HexVertex ambushStart;
+    private List<NetworkingDTOs.AmbushEdge> placedAmbushes = new();
     private HashSet<HexEdge> ambushEdges = new();
 
     protected override void Awake()
@@ -114,7 +115,18 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void SubmitPath()
     {
-        if (!pathComplete) return;
+        if (currentMode != InteractionMode.PathSelection)
+        {
+            Debug.Log("INTERACTIONMANAGER: SubmitPath called but not in PathSelection mode!");
+            return;
+        }
+        
+        if (!pathComplete) 
+        {
+            Debug.Log("INTERACTIONMANAGER: Cannot submit path - path not complete!");
+            return;
+        }
+        
         Debug.Log($"INTERACTIONMANAGER: Submitting path with {selectedVertices.Count} vertices");
         foreach (var vertex in selectedVertices)
         {
@@ -218,33 +230,116 @@ public class InteractionManager : Singleton<InteractionManager>
 
     void HandleAmbushClick(HexVertex v)
     {
-        if (ambushEdges.Count >= maxAmbushes) return;
-        if (ambushStart.Equals(default)) { ambushStart = v; return; }
-        if (GetNeighborVertices(ambushStart).Contains(v))
+        Debug.Log($"INTERACTIONMANAGER: HandleAmbushClick called for vertex: {v}");
+        Debug.Log($"INTERACTIONMANAGER: Current placedAmbushes count: {placedAmbushes.Count}, maxAmbushes: {maxAmbushes}");
+        
+        if (placedAmbushes.Count >= maxAmbushes) 
         {
-            var dir = GetDirectionBetween(ambushStart, v);
-            var edge = new HexEdge(ambushStart.Hex, dir);
-            net.Send("buy_ambush", edge);
+            Debug.Log($"INTERACTIONMANAGER: Maximum number of ambushes ({maxAmbushes}) reached!");
+            return;
         }
+
+        if (ambushStart.Equals(default)) 
+        { 
+            ambushStart = v; 
+            Debug.Log($"INTERACTIONMANAGER: Set ambush start vertex: {ambushStart}");
+            return; 
+        }
+
+        Debug.Log($"INTERACTIONMANAGER: Checking if vertices are neighbors - Start: {ambushStart}, End: {v}");
+        
+        // Prüfe ob die Vertices benachbart sind
+        var neighbors = GetNeighborVertices(ambushStart);
+        if (!neighbors.Contains(v))
+        {
+            Debug.Log($"INTERACTIONMANAGER: Vertices are not neighbors! Resetting ambush start.");
+            ambushStart = default;
+            return;
+        }
+
+        // Erstelle neue Ambush
+        var newAmbush = new NetworkingDTOs.AmbushEdge
+        {
+            cornerA = ambushStart,
+            cornerB = v
+        };
+
+        // Prüfe ob diese Ambush bereits existiert
+        bool alreadyExists = placedAmbushes.Any(existing => 
+            (existing.cornerA.Equals(newAmbush.cornerA) && existing.cornerB.Equals(newAmbush.cornerB)) ||
+            (existing.cornerA.Equals(newAmbush.cornerB) && existing.cornerB.Equals(newAmbush.cornerA))
+        );
+
+        if (alreadyExists)
+        {
+            Debug.Log($"INTERACTIONMANAGER: Ambush between {ambushStart} and {v} already exists!");
+            ambushStart = default;
+            return;
+        }
+
+        placedAmbushes.Add(newAmbush);
+        Debug.Log($"INTERACTIONMANAGER: ✅ Ambush created! From {ambushStart} to {v}");
+        Debug.Log($"INTERACTIONMANAGER: Total ambushes placed: {placedAmbushes.Count}/{maxAmbushes}");
+        
+        // Zeige alle aktuellen Ambushes
+        Debug.Log($"INTERACTIONMANAGER: Current ambushes:");
+        for (int i = 0; i < placedAmbushes.Count; i++)
+        {
+            var ambush = placedAmbushes[i];
+            Debug.Log($"INTERACTIONMANAGER:   [{i}] {ambush.cornerA} <-> {ambush.cornerB}");
+        }
+
         ambushStart = default;
     }
 
     public void FinalizeAmbushes()
     {
-        net.Send("place_ambushes", ambushEdges.ToList());
-        DisableInteraction();
-    }
+        if (currentMode != InteractionMode.AmbushPlacement)
+        {
+            Debug.Log("INTERACTIONMANAGER: FinalizeAmbushes called but not in AmbushPlacement mode!");
+            return;
+        }
+        
+        Debug.Log($"INTERACTIONMANAGER: FinalizeAmbushes called!");
+        Debug.Log($"INTERACTIONMANAGER: Sending {placedAmbushes.Count} ambushes to server:");
+        
+        for (int i = 0; i < placedAmbushes.Count; i++)
+        {
+            var ambush = placedAmbushes[i];
+            Debug.Log($"INTERACTIONMANAGER: Ambush [{i}]: {ambush.cornerA} <-> {ambush.cornerB}");
+        }
 
-    void ConfirmAmbushPlacement(HexEdge edge)
-    {
-        ambushEdges.Add(edge);
+        if (placedAmbushes.Count == 0)
+        {
+            Debug.Log($"INTERACTIONMANAGER: No ambushes to send!");
+        }
+
+        // Erstelle Payload für Server
+        var ambushPayload = new { ambushes = placedAmbushes.ToArray() };
+        Debug.Log($"INTERACTIONMANAGER: Serialized ambush payload: {JsonUtility.ToJson(ambushPayload)}");
+        
+        net.Send("place_ambushes", ambushPayload);
+        Debug.Log($"INTERACTIONMANAGER: Ambushes sent to server!");
+        DisableInteraction();
     }
 
     void DrawAmbushLines()
     {
-        foreach (var e in ambushEdges)
+        // Zeichne alle platzierten Ambushes
+        foreach (var ambush in placedAmbushes)
         {
-            Debug.DrawLine(e.ToWorld(gridGen.hexRadius), e.GetNeighbor().ToWorld(gridGen.hexRadius), Color.red);
+            Vector3 posA = ambush.cornerA.ToWorld(gridGen.hexRadius);
+            Vector3 posB = ambush.cornerB.ToWorld(gridGen.hexRadius);
+            Debug.DrawLine(posA, posB, Color.red);
+        }
+        
+        // Zeichne temporäre Linie zum aktuellen ambushStart
+        if (!ambushStart.Equals(default))
+        {
+            Vector3 startPos = ambushStart.ToWorld(gridGen.hexRadius);
+            // Zeichne einen kleinen Kreis um den Start-Punkt
+            Debug.DrawLine(startPos + Vector3.right * 0.1f, startPos + Vector3.left * 0.1f, Color.yellow);
+            Debug.DrawLine(startPos + Vector3.forward * 0.1f, startPos + Vector3.back * 0.1f, Color.yellow);
         }
     }
 
@@ -252,7 +347,10 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         selectedVertices.Clear(); validNextVertices.Clear(); pathComplete = false;
         isMoving = false; workerObj?.SetActive(false);
-        ambushStart = default; ambushEdges.Clear();
+        ambushStart = default; 
+        placedAmbushes.Clear();
+        ambushEdges.Clear();
+        Debug.Log($"INTERACTIONMANAGER: State reset - all ambushes and paths cleared");
     }
 
     HexDirection GetDirectionBetween(HexVertex a, HexVertex b)
