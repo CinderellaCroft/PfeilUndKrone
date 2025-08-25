@@ -983,6 +983,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roleText: {fileID: 1777561644}
   turnStatusText: {fileID: 1405237375}
+  roundNumberText: {fileID: 0}
   infoText: {fileID: 653193446}
   resourcesText: {fileID: 1257991122}
   doneButton: {fileID: 688913518}
@@ -1349,6 +1350,7 @@ MonoBehaviour:
   gridGen: {fileID: 88634056}
   net: {fileID: 1920741220}
   workerPrefab: {fileID: 2851964114763607541, guid: 63fb6c277f80d1140b502224c213644f, type: 3}
+  ambushOrb: {fileID: 2851964114763607541, guid: 637658ff1dd3d0844920e3017da2d928, type: 3}
   workerSpeed: 1
   ambushLineMaterial: {fileID: 0}
   maxAmbushes: 5

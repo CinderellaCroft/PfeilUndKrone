@@ -91,6 +91,20 @@ namespace NetworkingDTOs
     }
 
     [Serializable]
+    public class NewRoundPayload
+    {
+        public int roundNumber;
+        public ResourcePayload resources;
+    }
+
+    [Serializable]
+    public class ServerMessageNewRound
+    {
+        public string type;
+        public NewRoundPayload payload;
+    }
+
+    [Serializable]
     public class ServerMessageResourceUpdate
     {
         public string type;
@@ -109,7 +123,7 @@ namespace NetworkingDTOs
     public class ExecuteRoundPayload
     {
         public SerializablePathData[] kingPaths; // Array of path objects from server
-        public List<HexEdge> banditAmbushes;
+        public SerializableAmbushEdge[] banditAmbushes; // Changed from List<AmbushEdge> to match server format
         public List<HexEdge> outcome;
         public ResourcePayload winnerResourceUpdate;
 
@@ -203,6 +217,36 @@ namespace NetworkingDTOs
     {
         public HexVertex cornerA;
         public HexVertex cornerB;
+    }
+
+    [Serializable]
+    public class SerializableAmbushEdge
+    {
+        public SerializableHexVertex cornerA;
+        public SerializableHexVertex cornerB;
+        
+        public SerializableAmbushEdge() { }
+        
+        public SerializableAmbushEdge(AmbushEdge edge)
+        {
+            cornerA = new SerializableHexVertex(edge.cornerA);
+            cornerB = new SerializableHexVertex(edge.cornerB);
+        }
+        
+        public AmbushEdge ToAmbushEdge()
+        {
+            return new AmbushEdge
+            {
+                cornerA = cornerA.ToHexVertex(),
+                cornerB = cornerB.ToHexVertex()
+            };
+        }
+    }
+
+    [Serializable]
+    public class PlaceAmbushesPayload
+    {
+        public SerializableAmbushEdge[] ambushes;
     }
 
     [Serializable]

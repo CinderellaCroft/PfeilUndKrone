@@ -17,6 +17,8 @@ public class GameManager : Singleton<GameManager>
 
     private Dictionary<Hex, ResourceType> resourceMap;
 
+    private int currentRoundNumber = 0; // Track current round
+
     public PlayerRole MyRole { get; private set; } = PlayerRole.None;
     public GameTurn CurrentTurn { get; private set; } = GameTurn.Setup;
 
@@ -33,18 +35,25 @@ public class GameManager : Singleton<GameManager>
 
     public void SetRole(string roleName)
     {
-        if (roleName == "King") MyRole = PlayerRole.King;
-        else if (roleName == "Bandit") MyRole = PlayerRole.Bandit;
+        if (roleName == "King") 
+        {
+            MyRole = PlayerRole.King;
+        }
+        else if (roleName == "Bandit") 
+        {
+            MyRole = PlayerRole.Bandit;
+        }
+        else
+        {
+            Debug.Log($"Unknown role: '{roleName}', role remains: {MyRole}");
+        }
 
         UIManager.Instance.UpdateRoleText(MyRole);
-        Debug.Log($"My role is: {MyRole}");
     }
 
     void OnGridReady()
     {
-        Debug.Log("GAMEMANAGER: OnGridReady()");
         gridGenerator.GenerateGrid();
-
     }
 
 
@@ -80,22 +89,47 @@ public class GameManager : Singleton<GameManager>
 
     public void StartKingTurn()
     {
-        Debug.Log($"GAMEMANAGER: StartKingTurn() called. MyRole: {MyRole}");
+        // Only increment round number at the start of king's turn (beginning of new round)
+        if (CurrentTurn == GameTurn.Setup || CurrentTurn == GameTurn.Executing)
+        {
+            currentRoundNumber++;
+            Debug.Log($"🎯 Round {currentRoundNumber} started!");
+            UIManager.Instance.UpdateRoundNumber(currentRoundNumber);
+            
+            // Reset vertex highlights when new round starts
+            interactionManager.ForceCompleteReset();
+        }
+        
         CurrentTurn = GameTurn.KingPlanning;
         UIManager.Instance.UpdateTurnStatus("King's Turn: Select Path");
         interactionManager.EnableInteraction(PlayerRole.King);
-        if (MyRole == PlayerRole.King) UIManager.Instance.SetDoneButtonActive(true);
-        Debug.Log($"GAMEMANAGER: King turn started. CurrentTurn: {CurrentTurn}");
+        
+        // Show Done button only for King, hide for Bandit
+        if (MyRole == PlayerRole.King) 
+        {
+            UIManager.Instance.SetDoneButtonActive(true);
+        }
+        else
+        {
+            UIManager.Instance.SetDoneButtonActive(false);
+        }
     }
 
     public void StartBanditTurn()
     {
-        Debug.Log($"GAMEMANAGER: StartBanditTurn() called. MyRole: {MyRole}");
         CurrentTurn = GameTurn.BanditPlanning;
         UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
         interactionManager.EnableInteraction(PlayerRole.Bandit);
-        if (MyRole == PlayerRole.Bandit) UIManager.Instance.SetDoneButtonActive(true);
-        Debug.Log($"GAMEMANAGER: Bandit turn started. CurrentTurn: {CurrentTurn}");
+        
+        // Show Done button only for Bandit, hide for King
+        if (MyRole == PlayerRole.Bandit) 
+        {
+            UIManager.Instance.SetDoneButtonActive(true);
+        }
+        else
+        {
+            UIManager.Instance.SetDoneButtonActive(false);
+        }
     }
 
     public void StartExecutionPhase(List<PathData> kingPaths, List<AmbushEdge> banditAmbushes)
@@ -104,15 +138,6 @@ public class GameManager : Singleton<GameManager>
         UIManager.Instance.UpdateTurnStatus("Executing Round...");
         UIManager.Instance.SetDoneButtonActive(false);
         interactionManager.DisableInteraction();
-
-        Debug.Log("Executing round with King paths:");
-        foreach (var pd in kingPaths)
-            foreach (var c in pd.path)
-                Debug.Log($"  Corner: ({c.Hex.Q},{c.Hex.R},{c.Direction})");
-
-        Debug.Log("And Bandit ambushes:");
-        foreach (var amb in banditAmbushes)
-            Debug.Log($"  Ambush: ({amb.cornerA.Hex.Q},{amb.cornerA.Hex.R},{amb.cornerA.Direction}) ↔ ({amb.cornerB.Hex.Q},{amb.cornerB.Hex.R},{amb.cornerB.Direction})");
 
         if (kingPaths.Count > 0 && kingPaths[0].path.Count > 0)
             ExecuteWorkerPath(kingPaths[0].path);

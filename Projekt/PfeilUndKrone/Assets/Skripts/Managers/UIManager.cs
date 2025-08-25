@@ -6,6 +6,7 @@ public class UIManager : Singleton<UIManager>
 {
     [SerializeField] private TextMeshProUGUI roleText;
     [SerializeField] private TextMeshProUGUI turnStatusText;
+    [SerializeField] private TextMeshProUGUI roundNumberText;
     [SerializeField] private TextMeshProUGUI infoText;
     [SerializeField] private TextMeshProUGUI resourcesText;
     [SerializeField] private Button doneButton;
@@ -26,6 +27,12 @@ public class UIManager : Singleton<UIManager>
             UnityEditor.EditorApplication.isPlaying = false;
 #endif
         }
+        
+        // Separate check for optional roundNumberText
+        if (roundNumberText == null)
+        {
+            Debug.LogWarning("roundNumberText is not assigned in UIManager. Round numbers will not be displayed.", this.gameObject);
+        }
     }
 
     void Start()
@@ -42,6 +49,18 @@ public class UIManager : Singleton<UIManager>
     public void UpdateTurnStatus(string status)
     {
         turnStatusText.text = status;
+    }
+
+    public void UpdateRoundNumber(int roundNumber)
+    {
+        if (roundNumberText != null)
+        {
+            roundNumberText.text = $"Round: {roundNumber}";
+        }
+        else
+        {
+            Debug.LogWarning("roundNumberText is not assigned in UIManager!");
+        }
     }
 
     public void UpdateInfoText(string info)
@@ -61,6 +80,7 @@ public class UIManager : Singleton<UIManager>
 
     private void OnDoneButtonClicked()
     {
+        Debug.Log($"Done button clicked! Current turn: {GameManager.Instance.CurrentTurn}");
         infoText.text = "";
         if (GameManager.Instance.CurrentTurn == GameTurn.KingPlanning)
         {
@@ -69,6 +89,10 @@ public class UIManager : Singleton<UIManager>
         else if (GameManager.Instance.CurrentTurn == GameTurn.BanditPlanning)
         {
             InteractionManager.Instance.FinalizeAmbushes();
+        }
+        else
+        {
+            Debug.LogError($"❌ Error: Done button clicked in invalid turn state: {GameManager.Instance.CurrentTurn}");
         }
     }
 }
