@@ -5,7 +5,6 @@ using System;
 using System.Linq;
 using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
 using NetworkingDTOs;
-using System.Linq;
 
 
 public class NetworkManager : SingletonNetworkService<NetworkSimulator>
@@ -167,16 +166,31 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "ambush_approved":
                         var ambushMessage = JsonUtility.FromJson<ServerMessageAmbushApproved>(messageString);
                         RaiseAmbushConfirmed(ambushMessage.payload);
+                        
+                        // Notify InteractionManager that ambush purchase was approved
+                        InteractionManager.Instance.OnAmbushPurchaseApproved();
                         break;
 
                     case "ambush_denied":
                         Debug.LogError("❌ Server denied ambush purchase - Not enough resources!");
                         UIManager.Instance.UpdateInfoText("Ambush denied: Not enough resources!");
+                        
+                        // Notify InteractionManager that ambush purchase was denied
+                        InteractionManager.Instance.OnAmbushPurchaseDenied("Not enough resources!");
                         break;
 
                     case "resource_update":
                         var resourceMessage = JsonUtility.FromJson<ServerMessageResourceUpdate>(messageString);
                         UIManager.Instance.UpdateResourcesText(resourceMessage.payload.gold, resourceMessage.payload.wood, resourceMessage.payload.grain);
+                        
+                        // Update InteractionManager with new gold amount for ambush buying
+                        InteractionManager.Instance.UpdateGoldAmount(resourceMessage.payload.gold);
+                        
+                        // Update bandit ambush button text to reflect new gold amount
+                        if (GameManager.Instance.MyRole == PlayerRole.Bandit)
+                        {
+                            UIManager.Instance.UpdateBanditAmbushButtonText();
+                        }
                         break;
 
                     case "execute_round":
@@ -192,7 +206,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                         }
                         else
                         {
-                            Debug.Log($"😞 You lost this round. Winner: {execMsg.winner}");
+                            Debug.Log($"You lost this round. Winner: {execMsg.winner}");
                         }
 
                         // 3) Start synchronized animation for both players
@@ -203,7 +217,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                             // Process ambushes
                             if (execMsg.banditAmbushes != null && execMsg.banditAmbushes.Length > 0)
                             {
-                                Debug.Log($"🎯 [NM] My role: {GameManager.Instance?.MyRole}, Processing {execMsg.banditAmbushes.Length} serialized ambushes for animation");
+                                Debug.Log($"[NM] My role: {GameManager.Instance?.MyRole}, Processing {execMsg.banditAmbushes.Length} serialized ambushes for animation");
                                 
                                 // Convert SerializableAmbushEdge[] to List<AmbushEdge>
                                 for (int i = 0; i < execMsg.banditAmbushes.Length; i++)
@@ -212,7 +226,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                                     try
                                     {
                                         var convertedAmbush = serializedAmbush.ToAmbushEdge();
-                                        Debug.Log($"🎯 [NM] Converted ambush [{i}]: {convertedAmbush.cornerA} <-> {convertedAmbush.cornerB}");
+                                        Debug.Log($"[NM] Converted ambush [{i}]: {convertedAmbush.cornerA} <-> {convertedAmbush.cornerB}");
                                         convertedAmbushes.Add(convertedAmbush);
                                     }
                                     catch (System.Exception e)
@@ -221,38 +235,45 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                                         Debug.LogError($"❌ [NM] Raw serialized ambush: cornerA({serializedAmbush.cornerA?.q},{serializedAmbush.cornerA?.r},{serializedAmbush.cornerA?.direction}) cornerB({serializedAmbush.cornerB?.q},{serializedAmbush.cornerB?.r},{serializedAmbush.cornerB?.direction})");
                                     }
                                 }
-                                Debug.Log($"🎯 [NM] Successfully converted {convertedAmbushes.Count} ambushes out of {execMsg.banditAmbushes.Length}");
+                                Debug.Log($"[NM] Successfully converted {convertedAmbushes.Count} ambushes out of {execMsg.banditAmbushes.Length}");
                             }
                             else
                             {
-                                Debug.Log($"🎯 [NM] My role: {GameManager.Instance?.MyRole}, No banditAmbushes to display");
+                                Debug.Log($"[NM] My role: {GameManager.Instance?.MyRole}, No banditAmbushes to display");
                             }
                             
-                            // Process king path
-                            List<HexVertex> hexVertexPath = new List<HexVertex>();
+                            // Process king paths (multiple paths now)
+                            List<List<HexVertex>> allKingPaths = new List<List<HexVertex>>();
                             if (execMsg.kingPaths != null && execMsg.kingPaths.Length > 0)
                             {
-                                var firstPath = execMsg.kingPaths[0].path;
-                                Debug.Log($"🚶 [NM] My role: {GameManager.Instance?.MyRole}, Processing King path with {firstPath.Length} vertices.");
+                                Debug.Log($"[NM] My role: {GameManager.Instance?.MyRole}, Processing {execMsg.kingPaths.Length} King paths.");
                                 
-                                // Convert SerializableHexVertex[] to List<HexVertex>
-                                hexVertexPath = firstPath.Select(v => v.ToHexVertex()).ToList();
+                                // Convert all paths from SerializableHexVertex[] to List<HexVertex>
+                                foreach (var pathData in execMsg.kingPaths)
+                                {
+                                    var hexVertexPath = pathData.path.Select(v => v.ToHexVertex()).ToList();
+                                    allKingPaths.Add(hexVertexPath);
+                                    Debug.Log($"[NM] Converted path with {hexVertexPath.Count} vertices");
+                                }
                             }
                             else
                             {
                                 Debug.LogWarning($"❌ Fehler: [NM] My role: {GameManager.Instance?.MyRole}, No kingPaths in execute_round payload.");
                             }
                             
-                            // Start synchronized animation with both ambushes and path
-                            if (hexVertexPath.Count > 0)
+                            // Start synchronized animation with multiple paths
+                            if (allKingPaths.Count > 0)
                             {
-                                InteractionManager.Instance.StartSynchronizedAnimation(hexVertexPath, convertedAmbushes);
+                                InteractionManager.Instance.StartSynchronizedAnimationMultiplePaths(allKingPaths, convertedAmbushes);
                             }
                             else
                             {
-                                // If no path, just display ambushes
+                                // If no paths, just display ambushes
                                 InteractionManager.Instance.DisplayAnimationOrbs(convertedAmbushes);
                             }
+                            
+                            // Schedule cleanup after animation completes (10 seconds as per server)
+                            StartCoroutine(DelayedAnimationCleanup(10.5f));
                         });
                         break;
 
@@ -262,8 +283,21 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                         var roundPayload = newRoundMsg.payload;
                         
                         Debug.Log($"Round {roundPayload.roundNumber} started! Resources: 💰{roundPayload.resources.gold}, 🪵{roundPayload.resources.wood}, 🌾{roundPayload.resources.grain}");
+                        
+                        // IMPORTANT: Clear all workers, paths, and visual elements at start of new round
+                        InteractionManager.Instance.ForceCompleteReset();
+                        
                         UIManager.Instance.UpdateRoundNumber(roundPayload.roundNumber);
                         UIManager.Instance.UpdateResourcesText(roundPayload.resources.gold, roundPayload.resources.wood, roundPayload.resources.grain);
+                        
+                        // Update InteractionManager with new gold amount
+                        InteractionManager.Instance.UpdateGoldAmount(roundPayload.resources.gold);
+                        
+                        // Update bandit button text if bandit player
+                        if (GameManager.Instance.MyRole == PlayerRole.Bandit)
+                        {
+                            UIManager.Instance.UpdateBanditAmbushButtonText();
+                        }
                         break;
 
                     case "turn_status":
@@ -337,6 +371,14 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
         string finalJson = JsonUtility.ToJson(message);
 
         await websocket.SendText(finalJson);
+    }
+    
+    // Coroutine to clean up animation after delay
+    private System.Collections.IEnumerator DelayedAnimationCleanup(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        Debug.Log($"[NM] DelayedAnimationCleanup: Cleaning up animation for {GameManager.Instance?.MyRole}");
+        InteractionManager.Instance.CleanupAfterRoundAnimation();
     }
 
     private async void OnApplicationQuit()

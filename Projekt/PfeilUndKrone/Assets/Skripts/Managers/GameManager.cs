@@ -93,7 +93,7 @@ public class GameManager : Singleton<GameManager>
         if (CurrentTurn == GameTurn.Setup || CurrentTurn == GameTurn.Executing)
         {
             currentRoundNumber++;
-            Debug.Log($"🎯 Round {currentRoundNumber} started!");
+            Debug.Log($"Round {currentRoundNumber} started!");
             UIManager.Instance.UpdateRoundNumber(currentRoundNumber);
             
             // Reset vertex highlights when new round starts
@@ -104,15 +104,8 @@ public class GameManager : Singleton<GameManager>
         UIManager.Instance.UpdateTurnStatus("King's Turn: Select Path");
         interactionManager.EnableInteraction(PlayerRole.King);
         
-        // Show Done button only for King, hide for Bandit
-        if (MyRole == PlayerRole.King) 
-        {
-            UIManager.Instance.SetDoneButtonActive(true);
-        }
-        else
-        {
-            UIManager.Instance.SetDoneButtonActive(false);
-        }
+        // Update button visibility based on turn and role
+        UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
 
     public void StartBanditTurn()
@@ -121,30 +114,35 @@ public class GameManager : Singleton<GameManager>
         UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
         interactionManager.EnableInteraction(PlayerRole.Bandit);
         
-        // Show Done button only for Bandit, hide for King
-        if (MyRole == PlayerRole.Bandit) 
-        {
-            UIManager.Instance.SetDoneButtonActive(true);
-        }
-        else
-        {
-            UIManager.Instance.SetDoneButtonActive(false);
-        }
+        // Update button visibility based on turn and role
+        UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
 
     public void StartExecutionPhase(List<PathData> kingPaths, List<AmbushEdge> banditAmbushes)
     {
         CurrentTurn = GameTurn.Executing;
         UIManager.Instance.UpdateTurnStatus("Executing Round...");
-        UIManager.Instance.SetDoneButtonActive(false);
+        
+        // Hide all buttons during execution
+        UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
+        
         interactionManager.DisableInteraction();
 
-        if (kingPaths.Count > 0 && kingPaths[0].path.Count > 0)
-            ExecuteWorkerPath(kingPaths[0].path);
+        // Execute all paths, not just the first one
+        if (kingPaths.Count > 0)
+        {
+            var allPaths = kingPaths.Select(pathData => pathData.path).ToList();
+            ExecuteWorkerPaths(allPaths);
+        }
     }
 
     private void ExecuteWorkerPath(List<HexVertex> path)
     {
         interactionManager.ExecuteServerPath(path);
+    }
+    
+    private void ExecuteWorkerPaths(List<List<HexVertex>> paths)
+    {
+        interactionManager.ExecuteServerPaths(paths);
     }
 }
