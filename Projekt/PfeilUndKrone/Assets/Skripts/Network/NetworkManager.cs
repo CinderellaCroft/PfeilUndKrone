@@ -5,7 +5,6 @@ using System;
 using System.Linq;
 using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
 using NetworkingDTOs;
-using System.Linq;
 
 
 public class NetworkManager : SingletonNetworkService<NetworkSimulator>
@@ -83,7 +82,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "match_created":
                         var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
                         Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
-                        GameManager.Instance.SetRole(matchMessage.payload.role);
+                        RaiseMatchCreated(matchMessage.payload.role);
                         break;
 
                     case "grid_data":
@@ -109,8 +108,8 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                             var list = new List<ResourceData>();
                             foreach (var rd in resMsg.payload.map)
                             {
-                                if (!Enum.TryParse<ResourceType>(rd.resource, true, out var parsed))
-                                    parsed = ResourceType.Desert; // fallback
+                                if (!Enum.TryParse<FieldType>(rd.resource, true, out var parsed))
+                                    parsed = FieldType.Desert; // fallback
                                 list.Add(new ResourceData { q = rd.q, r = rd.r, resource = parsed });
                             }
 
@@ -218,7 +217,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                             {
                                 var firstPath = execMsg.kingPaths[0].path;
                                 Debug.Log($"[NM] Executing first King path with {firstPath.Length} vertices.");
-                                
+
                                 // Convert SerializableHexVertex[] back to List<HexVertex>
                                 var hexVertexPath = firstPath.Select(v => v.ToHexVertex()).ToList();
                                 InteractionManager.Instance.ExecuteServerPath(hexVertexPath);

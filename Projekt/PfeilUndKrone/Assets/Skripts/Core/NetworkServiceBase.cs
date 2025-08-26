@@ -5,10 +5,13 @@ using NetworkingDTOs;
 
 public abstract class NetworkServiceBase : MonoBehaviour
 {
+    public event Action<string> OnRoleAssigned;
     public event Action OnGridDataReady;
     public event Action<List<ResourceData>> OnResourceMapReceived;
     public event Action<HexEdge> OnAmbushConfirmed;
 
+    protected void RaiseMatchCreated(string roleName)
+        => OnRoleAssigned?.Invoke(roleName);
     protected void RaiseGridDataReady()
         => OnGridDataReady?.Invoke();
 

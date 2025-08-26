@@ -1,16 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class HexGridGenerator : MonoBehaviour
+public class HexGridGenerator : Singleton<HexGridGenerator>
 {
-    public static HexGridGenerator Instance;
 
     [HideInInspector] public HexGridModel Model { get; private set; }
     public float hexRadius = 1f;
 
-    void Awake()
+    protected override void Awake()
     {
-        Instance = this;
+        base.Awake();
         Model = new HexGridModel();
     }
 
