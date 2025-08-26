@@ -3,7 +3,7 @@ using System.Linq;
 using NetworkingDTOs;
 using UnityEngine;
 
-public enum PlayerRole { None, King, Bandit }
+public enum PlayerRole { None, King, Rebel }
 public enum GameTurn { Setup, KingPlanning, BanditPlanning, Executing }
 
 public class GameManager : Singleton<GameManager>
@@ -15,26 +15,28 @@ public class GameManager : Singleton<GameManager>
     public GridVisualsManager visualsManager;
     public InteractionManager interactionManager;
 
-    private Dictionary<Hex, ResourceType> resourceMap;
+    private Dictionary<Hex, FieldType> resourceMap;
 
     public PlayerRole MyRole { get; private set; } = PlayerRole.None;
     public GameTurn CurrentTurn { get; private set; } = GameTurn.Setup;
 
     void OnEnable()
     {
+        networkService.OnRoleAssigned += SetRole;
         networkService.OnGridDataReady += OnGridReady;
         networkService.OnResourceMapReceived += OnResourceMap;
     }
     void OnDisable()
     {
+        networkService.OnRoleAssigned -= SetRole;
         networkService.OnGridDataReady -= OnGridReady;
         networkService.OnResourceMapReceived -= OnResourceMap;
     }
 
-    public void SetRole(string roleName)
+    void SetRole(string roleName)
     {
-        if (roleName == "King") MyRole = PlayerRole.King;
-        else if (roleName == "Bandit") MyRole = PlayerRole.Bandit;
+        if (roleName == PlayerRole.King.ToString()) MyRole = PlayerRole.King;
+        else if (roleName == PlayerRole.Rebel.ToString()) MyRole = PlayerRole.Rebel;
 
         UIManager.Instance.UpdateRoleText(MyRole);
         Debug.Log($"My role is: {MyRole}");
@@ -50,9 +52,9 @@ public class GameManager : Singleton<GameManager>
 
     void OnResourceMap(List<ResourceData> mapData)
     {
-        var counts = new Dictionary<ResourceType, int>();
+        var counts = new Dictionary<FieldType, int>();
         var dupes = new List<string>();
-        resourceMap = new Dictionary<Hex, ResourceType>();
+        resourceMap = new Dictionary<Hex, FieldType>();
 
         // Debug.Log("##########################\nONRESOURCEMAP\n####################");
 
@@ -93,8 +95,8 @@ public class GameManager : Singleton<GameManager>
         Debug.Log($"GAMEMANAGER: StartBanditTurn() called. MyRole: {MyRole}");
         CurrentTurn = GameTurn.BanditPlanning;
         UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
-        interactionManager.EnableInteraction(PlayerRole.Bandit);
-        if (MyRole == PlayerRole.Bandit) UIManager.Instance.SetDoneButtonActive(true);
+        interactionManager.EnableInteraction(PlayerRole.Rebel);
+        if (MyRole == PlayerRole.Rebel) UIManager.Instance.SetDoneButtonActive(true);
         Debug.Log($"GAMEMANAGER: Bandit turn started. CurrentTurn: {CurrentTurn}");
     }
 

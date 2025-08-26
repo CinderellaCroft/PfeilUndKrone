@@ -10,6 +10,8 @@ public struct ResourcePrefabEntry
     public GameObject prefab;
 }
 
+public enum ResourceType { Wood, Wheat, Ore, Desert }
+
 public class GridVisualsManager : Singleton<GridVisualsManager>
 {
     [Header("References")]
@@ -19,10 +21,18 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     [Header("Containers")]
     public Transform hexFieldContainer;
 
-    [Header("Prefabs")]
-
-    public GameObject desertPrefab;
+    [Header("King Prefabs")]
+    public GameObject KingCastlePrefab;
+    public GameObject KingMoatPrefab;
     public List<ResourcePrefabEntry> resourcePrefabs;
+
+    [Header("Rebel Prefabs")]
+    public GameObject RebelCastlePrefab;
+    public GameObject RebelMoatPrefab;
+    public List<GameObject> unknownResourcePrefabs;
+
+    [Header("Other Prefabs")]
+    public GameObject desertPrefab;
     public GameObject vertexMarkerPrefab;
     public GameObject edgeMarkerPrefab;
 
@@ -38,26 +48,11 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     {
         base.Awake();
 
-        resourceMap = new Dictionary<ResourceType, GameObject>();
-
-        // Seed default desert (so you can keep it out of the list if you want)
-        if (desertPrefab != null)
-            resourceMap[ResourceType.Desert] = desertPrefab;
-
-        foreach (var e in resourcePrefabs)
-        {
-            if (resourceMap.ContainsKey(e.type))
-                Debug.LogWarning($"GridVisualsManager: duplicate prefab mapping for {e.type} – overriding");
-
-            // optional: log if the new prefab is missing
-            if (e.prefab == null)
-                Debug.LogWarning($"GridVisualsManager: prefab for {e.type} is NULL");
-
-            resourceMap[e.type] = e.prefab;
-        }
+        resourceMap = resourcePrefabs
+            .ToDictionary(e => e.type, e => e.prefab);
     }
 
-    public void InitializeVisuals(Dictionary<Hex, ResourceType> map)
+    public void InitializeVisuals(Dictionary<Hex, FieldType> map)
     {
         ClearPrevious();
 
@@ -66,23 +61,16 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         if (desertPrefab == null) { Debug.LogError("GridVisualsManager: desertPrefab NULL"); return; }
         if (resourceMap == null) { Debug.LogError("GridVisualsManager: prefab map (resourceMap) NULL"); return; }
 
-        float radius = gridGenerator.hexRadius; // ← moved after null-checks
+        float radius = gridGenerator.hexRadius;
 
-        foreach (var t in new[] { ResourceType.KingCastle, ResourceType.KingMoat, ResourceType.Wood, ResourceType.Wheat, ResourceType.Ore, ResourceType.Desert })
-            if (!resourceMap.TryGetValue(t, out var pf) || pf == null)
-                Debug.LogError($"Missing/NULL prefab mapping for {t}");
+        foreach (var t in resourceMap)
+            if (t.Value == null)
+                Debug.LogError($"Missing/NULL prefab mapping for {t.Key}");
 
         foreach (var hex in gridGenerator.Model.AllHexes)
         {
-            GameObject prefab = desertPrefab;
-            if (map.TryGetValue(hex, out var resType))
-                if (!resourceMap.TryGetValue(resType, out prefab) || prefab == null)
-                {
-                    Debug.LogError($"Prefab NULL for {resType} at {hex}. Falling back to Desert.");
-                    prefab = desertPrefab;
-                }
-
-            if (prefab == null) { Debug.LogError("desertPrefab is NULL, cannot instantiate"); continue; }
+            var role = GameManager.Instance.MyRole;
+            var prefab = ResolveFieldPrefab(hex, map, role);
 
             var go = Instantiate(prefab, hex.ToWorld(radius), Quaternion.identity, hexFieldContainer);
             go.name = hex.ToString();
@@ -90,19 +78,6 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             var hm = go.AddComponent<HexMarker>(); hm.hex = hex; hm.interaction = interactionManager;
             hexObjects[hex] = go;
         }
-
-
-        // foreach (var hex in gridGenerator.Model.AllHexes)
-        // {
-        //     GameObject prefab;
-        //     if (map.TryGetValue(hex, out var resType)) prefab = resourceMap[resType];
-        //     else prefab = desertPrefab;
-
-        //     var go = Instantiate(prefab, hex.ToWorld(radius), Quaternion.identity, hexFieldContainer); //line 54
-        //     go.name = hex.ToString();
-        //     var hm = go.AddComponent<HexMarker>(); hm.hex = hex; hm.interaction = interactionManager;
-        //     hexObjects[hex] = go;
-        // }
 
         foreach (var vertex in gridGenerator.Model.AllVertices)
         {
@@ -124,11 +99,6 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         }
     }
 
-
-    // 
-
-    // 
-
     void ClearPrevious()
     {
         foreach (var go in hexObjects.Values) Destroy(go);
@@ -136,4 +106,51 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         foreach (var vm in FindObjectsByType<VertexMarker>(FindObjectsSortMode.None)) Destroy(vm.gameObject);
         foreach (var em in FindObjectsByType<EdgeMarker>(FindObjectsSortMode.None)) Destroy(em.gameObject);
     }
+
+    private static bool IsCastleField(FieldType f) => f == FieldType.Castle;
+    private static bool IsMoatField(FieldType f) => f == FieldType.Moat;
+    private static bool TryFieldAsResource(FieldType f, out ResourceType r)
+    {
+        if (f == FieldType.Castle || f == FieldType.Moat)
+        {
+            r = default;
+            return false;
+        }
+
+        if (System.Enum.TryParse(f.ToString(), out r))
+            return true;
+
+        return false;
+    }
+
+    private GameObject ResolveFieldPrefab(
+    Hex hex,
+    Dictionary<Hex, FieldType> map,
+    PlayerRole role)
+    {
+        if (map != null && map.TryGetValue(hex, out var ft))
+        {
+            if (IsCastleField(ft))
+                return role == PlayerRole.King ? KingCastlePrefab : RebelCastlePrefab;
+
+            if (IsMoatField(ft))
+                return role == PlayerRole.King ? KingMoatPrefab : RebelMoatPrefab;
+
+            if (TryFieldAsResource(ft, out var rt)
+                && resourceMap != null
+                && resourceMap.TryGetValue(rt, out var resPrefab)
+                && resPrefab != null)
+            {
+                return resPrefab;
+            }
+
+            return desertPrefab;
+        }
+
+        if (role == PlayerRole.Rebel && unknownResourcePrefabs != null && unknownResourcePrefabs.Count > 0)
+            return unknownResourcePrefabs[Random.Range(0, unknownResourcePrefabs.Count)];
+
+        return desertPrefab;
+    }
+
 }

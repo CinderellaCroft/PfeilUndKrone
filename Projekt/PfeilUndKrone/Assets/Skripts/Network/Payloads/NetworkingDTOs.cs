@@ -68,7 +68,7 @@ namespace NetworkingDTOs
     {
         public int q;
         public int r;
-        public ResourceType resource;
+        public FieldType resource;
     }
 
     // [Serializable]
@@ -172,7 +172,7 @@ namespace NetworkingDTOs
         public int direction; // VertexDirection as int
 
         public SerializableHexVertex() { }
-        
+
         public SerializableHexVertex(HexVertex vertex)
         {
             q = vertex.Hex.Q;

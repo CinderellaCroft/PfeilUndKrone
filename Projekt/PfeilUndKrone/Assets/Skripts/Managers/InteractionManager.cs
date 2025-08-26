@@ -51,7 +51,7 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         Debug.Log($"INTERACTIONMANAGER: EnableInteraction called with role: {role}");
         if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
-        else if (role == PlayerRole.Bandit) currentMode = InteractionMode.AmbushPlacement;
+        else if (role == PlayerRole.Rebel) currentMode = InteractionMode.AmbushPlacement;
         else currentMode = InteractionMode.None;
 
         Debug.Log($"INTERACTIONMANAGER: Interaction mode set to: {currentMode}");
@@ -85,7 +85,7 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         Debug.Log($"INTERACTIONMANAGER: HandlePathClick called for vertex: {v}");
         Debug.Log($"INTERACTIONMANAGER: pathComplete: {pathComplete}, isMoving: {isMoving}, selectedVertices count: {selectedVertices.Count}");
-        
+
         if (pathComplete || isMoving) return;
 
         if (!selectedVertices.Any())
@@ -96,15 +96,17 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.Log($"INTERACTIONMANAGER: Found {validNextVertices.Count} neighbor vertices");
             return;
         }
-        if (!validNextVertices.Contains(v)) { 
+        if (!validNextVertices.Contains(v))
+        {
             Debug.Log($"INTERACTIONMANAGER: Invalid vertex selection. Resetting to neighbors of last selected vertex.");
-            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last())); 
-            return; 
+            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last()));
+            return;
         }
 
         Debug.Log($"INTERACTIONMANAGER: Adding vertex to path: {v}");
         selectedVertices.Add(v);
-        if (centralVertices.Contains(v)) {
+        if (centralVertices.Contains(v))
+        {
             Debug.Log($"INTERACTIONMANAGER: Path completed! Connected to center.");
             pathComplete = true;
         }
@@ -121,22 +123,22 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.Log($"INTERACTIONMANAGER: Path vertex: {vertex}");
         }
         var serializableVertices = selectedVertices.Select(v => new SerializableHexVertex(v)).ToArray();
-        
+
         // Test individual vertex serialization
         if (serializableVertices.Length > 0)
         {
             Debug.Log($"INTERACTIONMANAGER: Testing single vertex: {JsonUtility.ToJson(serializableVertices[0])}");
         }
-        
-        var pathData = new PlaceWorkersPayload 
-        { 
-            paths = new SerializablePathData[] 
-            { 
+
+        var pathData = new PlaceWorkersPayload
+        {
+            paths = new SerializablePathData[]
+            {
                 new SerializablePathData { path = serializableVertices }
             }
         };
         Debug.Log($"INTERACTIONMANAGER: Serialized payload: {JsonUtility.ToJson(pathData)}");
-        
+
         // Alternative: Create simple manual JSON as backup
         var manualJson = "{\"paths\":[[";
         for (int i = 0; i < serializableVertices.Length; i++)
@@ -147,7 +149,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
         manualJson += "]]}";
         Debug.Log($"INTERACTIONMANAGER: Manual JSON: {manualJson}");
-        
+
         net.Send("place_workers", pathData);
         DisableInteraction();
     }
@@ -157,53 +159,53 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"INTERACTIONMANAGER: ExecuteServerPath called with {path.Count} vertices");
         serverPathWorld = path.Select(v => v.ToWorld(gridGen.hexRadius)).ToList();
         if (!serverPathWorld.Any()) return;
-        
+
         Debug.Log($"INTERACTIONMANAGER: Starting position: {serverPathWorld[0]}");
         Debug.Log($"INTERACTIONMANAGER: Worker object: {workerObj?.name}");
-        
+
         workerObj.transform.position = serverPathWorld[0];
         workerObj.SetActive(true);
         isMoving = true; pathStep = 0;
-        
+
         Debug.Log($"INTERACTIONMANAGER: Worker activated at position: {workerObj.transform.position}");
         Debug.Log($"INTERACTIONMANAGER: Worker active state: {workerObj.activeInHierarchy}");
     }
 
     void MoveWorker()
     {
-        if (pathStep >= serverPathWorld.Count) 
+        if (pathStep >= serverPathWorld.Count)
         {
             Debug.Log("INTERACTIONMANAGER: Worker movement completed");
-            isMoving = false; 
-            workerObj.SetActive(false); 
-            ResetState(); 
+            isMoving = false;
+            workerObj.SetActive(false);
+            ResetState();
             return;
         }
-        
+
         var curr = workerObj.transform.position;
         var targ = serverPathWorld[pathStep];
-        
+
         // Debug every few frames to avoid spam
         if (Time.frameCount % 60 == 0)
         {
             Debug.Log($"INTERACTIONMANAGER: Moving worker - Step: {pathStep}, Current: {curr}, Target: {targ}");
         }
-        
+
         // Visual debug - draw a line to show worker path
         Debug.DrawLine(curr, targ, Color.red, 0.1f);
-        
+
         workerObj.transform.position = Vector3.MoveTowards(curr, targ, workerSpeed * Time.deltaTime);
-        
-        if (Vector3.Distance(curr, targ) < 0.01f) 
+
+        if (Vector3.Distance(curr, targ) < 0.01f)
         {
             pathStep++;
-            Debug.Log($"INTERACTIONMANAGER: Reached target {pathStep-1}, moving to step {pathStep}");
-            if (pathStep >= serverPathWorld.Count) 
-            { 
+            Debug.Log($"INTERACTIONMANAGER: Reached target {pathStep - 1}, moving to step {pathStep}");
+            if (pathStep >= serverPathWorld.Count)
+            {
                 Debug.Log("INTERACTIONMANAGER: Worker movement completed");
-                isMoving = false; 
-                workerObj.SetActive(false); 
-                ResetState(); 
+                isMoving = false;
+                workerObj.SetActive(false);
+                ResetState();
             }
         }
     }
