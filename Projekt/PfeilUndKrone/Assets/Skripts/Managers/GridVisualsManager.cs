@@ -99,6 +99,11 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         }
     }
 
+    public GameObject GetVertexGameObject(HexVertex vertex)
+    {
+        return hexVertexObjects.TryGetValue(vertex, out var go) ? go : null;
+    }
+
     void ClearPrevious()
     {
         foreach (var go in hexObjects.Values) Destroy(go);

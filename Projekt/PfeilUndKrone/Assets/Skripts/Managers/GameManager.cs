@@ -17,6 +17,8 @@ public class GameManager : Singleton<GameManager>
 
     private Dictionary<Hex, FieldType> resourceMap;
 
+    private int currentRoundNumber = 0; // Track current round
+
     public PlayerRole MyRole { get; private set; } = PlayerRole.None;
     public GameTurn CurrentTurn { get; private set; } = GameTurn.Setup;
 
@@ -37,16 +39,15 @@ public class GameManager : Singleton<GameManager>
     {
         if (roleName == PlayerRole.King.ToString()) MyRole = PlayerRole.King;
         else if (roleName == PlayerRole.Rebel.ToString()) MyRole = PlayerRole.Rebel;
+        else Debug.Log($"Unknown role: '{roleName}', role remains: {MyRole}");
+        
 
         UIManager.Instance.UpdateRoleText(MyRole);
-        Debug.Log($"My role is: {MyRole}");
     }
 
     void OnGridReady()
     {
-        Debug.Log("GAMEMANAGER: OnGridReady()");
         gridGenerator.GenerateGrid();
-
     }
 
 
@@ -82,46 +83,60 @@ public class GameManager : Singleton<GameManager>
 
     public void StartKingTurn()
     {
-        Debug.Log($"GAMEMANAGER: StartKingTurn() called. MyRole: {MyRole}");
+        // Only increment round number at the start of king's turn (beginning of new round)
+        if (CurrentTurn == GameTurn.Setup || CurrentTurn == GameTurn.Executing)
+        {
+            currentRoundNumber++;
+            Debug.Log($"Round {currentRoundNumber} started!");
+            UIManager.Instance.UpdateRoundNumber(currentRoundNumber);
+            
+            // Reset vertex highlights when new round starts
+            interactionManager.ForceCompleteReset();
+        }
+        
         CurrentTurn = GameTurn.KingPlanning;
         UIManager.Instance.UpdateTurnStatus("King's Turn: Select Path");
         interactionManager.EnableInteraction(PlayerRole.King);
-        if (MyRole == PlayerRole.King) UIManager.Instance.SetDoneButtonActive(true);
-        Debug.Log($"GAMEMANAGER: King turn started. CurrentTurn: {CurrentTurn}");
+        
+        // Update button visibility based on turn and role
+        UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
 
     public void StartBanditTurn()
     {
-        Debug.Log($"GAMEMANAGER: StartBanditTurn() called. MyRole: {MyRole}");
         CurrentTurn = GameTurn.BanditPlanning;
         UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
         interactionManager.EnableInteraction(PlayerRole.Rebel);
-        if (MyRole == PlayerRole.Rebel) UIManager.Instance.SetDoneButtonActive(true);
-        Debug.Log($"GAMEMANAGER: Bandit turn started. CurrentTurn: {CurrentTurn}");
+        
+        // Update button visibility based on turn and role
+        UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
 
     public void StartExecutionPhase(List<PathData> kingPaths, List<AmbushEdge> banditAmbushes)
     {
         CurrentTurn = GameTurn.Executing;
         UIManager.Instance.UpdateTurnStatus("Executing Round...");
-        UIManager.Instance.SetDoneButtonActive(false);
+        
+        // Hide all buttons during execution
+        UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
+        
         interactionManager.DisableInteraction();
 
-        Debug.Log("Executing round with King paths:");
-        foreach (var pd in kingPaths)
-            foreach (var c in pd.path)
-                Debug.Log($"  Corner: ({c.Hex.Q},{c.Hex.R},{c.Direction})");
-
-        Debug.Log("And Bandit ambushes:");
-        foreach (var amb in banditAmbushes)
-            Debug.Log($"  Ambush: ({amb.cornerA.Hex.Q},{amb.cornerA.Hex.R},{amb.cornerA.Direction}) ↔ ({amb.cornerB.Hex.Q},{amb.cornerB.Hex.R},{amb.cornerB.Direction})");
-
-        if (kingPaths.Count > 0 && kingPaths[0].path.Count > 0)
-            ExecuteWorkerPath(kingPaths[0].path);
+        // Execute all paths, not just the first one
+        if (kingPaths.Count > 0)
+        {
+            var allPaths = kingPaths.Select(pathData => pathData.path).ToList();
+            ExecuteWorkerPaths(allPaths);
+        }
     }
 
     private void ExecuteWorkerPath(List<HexVertex> path)
     {
         interactionManager.ExecuteServerPath(path);
+    }
+    
+    private void ExecuteWorkerPaths(List<List<HexVertex>> paths)
+    {
+        interactionManager.ExecuteServerPaths(paths);
     }
 }
