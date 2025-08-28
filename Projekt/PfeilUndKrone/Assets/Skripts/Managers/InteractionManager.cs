@@ -14,7 +14,7 @@ public class InteractionManager : Singleton<InteractionManager>
     public NetworkServiceBase net;
 
     public GameObject workerPrefab;
-    public GameObject ambushOrb; // Prefab für die Kugeln bei Ambushes
+    public GameObject ambushOrb;
     public float workerSpeed = 1f;
 
     // Multiple workers for multiple paths
@@ -82,8 +82,8 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void EnableInteraction(PlayerRole role)
     {
-        if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
-        else if (role == PlayerRole.Rebel) currentMode = InteractionMode.AmbushPlacement;
+    if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
+    else if (role == PlayerRole.Bandit) currentMode = InteractionMode.AmbushPlacement;
     }
 
     public void DisableInteraction() 
@@ -507,7 +507,19 @@ public class InteractionManager : Singleton<InteractionManager>
         var curr = workerObj.transform.position;
         var targ = serverPathWorld[pathStep];
         
+        // Kollisionserkennung - wir speichern die Anzahl der Orbs vor der Prüfung
+        int orbCountBefore = animationAmbushOrbObjects.Count;
         CheckCollisionWithOrbs(curr);
+        int orbCountAfter = animationAmbushOrbObjects.Count;
+        
+        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker deaktivieren
+        if (orbCountAfter < orbCountBefore)
+        {
+            isMoving = false;
+            workerObj.SetActive(false);
+            Debug.Log("Legacy-Worker wurde durch Ambush zerstört");
+            return;
+        }
         
         if (Vector3.Distance(curr, targ) < 0.01f) 
         {
@@ -538,7 +550,19 @@ public class InteractionManager : Singleton<InteractionManager>
         var curr = workerObj.transform.position;
         var targ = pathWorld[workerPathSteps[workerIndex]];
         
+        // Kollisionserkennung - wir speichern die Anzahl der Orbs vor der Prüfung
+        int orbCountBefore = animationAmbushOrbObjects.Count;
         CheckCollisionWithOrbs(curr);
+        int orbCountAfter = animationAmbushOrbObjects.Count;
+        
+        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker deaktivieren
+        if (orbCountAfter < orbCountBefore)
+        {
+            workerMovingStates[workerIndex] = false;
+            workerObj.SetActive(false);
+            Debug.Log($"Worker {workerIndex} wurde durch Ambush zerstört");
+            return;
+        }
         
         if (Vector3.Distance(curr, targ) < 0.01f) 
         {
@@ -609,6 +633,19 @@ public class InteractionManager : Singleton<InteractionManager>
                     Debug.Log($"❌ AMBUSH COLLISION DETECTED! ({GameManager.Instance?.MyRole})");
                     Destroy(animationAmbushOrbObjects[i]);
                     animationAmbushOrbObjects.RemoveAt(i);
+                    
+                    // Dann den Worker des Königs stoppen und deaktivieren
+                    // Bei der Legacy-Version (einzelner Worker)
+                    if (isMoving && workerObj != null)
+                    {
+                        isMoving = false;
+                        workerObj.SetActive(false);
+                        Debug.Log("König-Worker wurde durch Ambush zerstört (Legacy)");
+                        return; // Sofort zurückkehren, da der Worker deaktiviert wurde
+                    }
+                    
+                    // Für Multi-Worker System - wir müssen den richtigen Worker finden und deaktivieren
+                    // Das wird in MoveWorker behandelt, da wir hier den Index nicht haben
                 }
             }
         }

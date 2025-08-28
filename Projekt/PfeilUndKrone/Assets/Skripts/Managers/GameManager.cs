@@ -3,7 +3,7 @@ using System.Linq;
 using NetworkingDTOs;
 using UnityEngine;
 
-public enum PlayerRole { None, King, Rebel }
+public enum PlayerRole { None, King, Bandit }
 public enum GameTurn { Setup, KingPlanning, BanditPlanning, Executing }
 
 public class GameManager : Singleton<GameManager>
@@ -37,8 +37,8 @@ public class GameManager : Singleton<GameManager>
 
     void SetRole(string roleName)
     {
-        if (roleName == PlayerRole.King.ToString()) MyRole = PlayerRole.King;
-        else if (roleName == PlayerRole.Rebel.ToString()) MyRole = PlayerRole.Rebel;
+    if (roleName == PlayerRole.King.ToString()) MyRole = PlayerRole.King;
+    else if (roleName == PlayerRole.Bandit.ToString()) MyRole = PlayerRole.Bandit;
         else Debug.Log($"Unknown role: '{roleName}', role remains: {MyRole}");
         
 
@@ -106,7 +106,7 @@ public class GameManager : Singleton<GameManager>
     {
         CurrentTurn = GameTurn.BanditPlanning;
         UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
-        interactionManager.EnableInteraction(PlayerRole.Rebel);
+    interactionManager.EnableInteraction(PlayerRole.Bandit);
         
         // Update button visibility based on turn and role
         UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);

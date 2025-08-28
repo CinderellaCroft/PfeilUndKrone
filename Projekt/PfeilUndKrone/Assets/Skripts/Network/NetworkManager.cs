@@ -187,7 +187,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                         InteractionManager.Instance.UpdateGoldAmount(resourceMessage.payload.gold);
                         
                         // Update bandit ambush button text to reflect new gold amount
-                        if (GameManager.Instance.MyRole == PlayerRole.Rebel)
+                        if (GameManager.Instance.MyRole == PlayerRole.Bandit)
                         {
                             UIManager.Instance.UpdateBanditAmbushButtonText();
                         }
@@ -294,7 +294,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                         InteractionManager.Instance.UpdateGoldAmount(roundPayload.resources.gold);
                         
                         // Update bandit button text if bandit player
-                        if (GameManager.Instance.MyRole == PlayerRole.Rebel)
+                        if (GameManager.Instance.MyRole == PlayerRole.Bandit)
                         {
                             UIManager.Instance.UpdateBanditAmbushButtonText();
                         }

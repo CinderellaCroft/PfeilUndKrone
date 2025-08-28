@@ -762,7 +762,7 @@ GameObject:
   - component: {fileID: 558135604}
   - component: {fileID: 558135603}
   m_Layer: 5
-  m_Name: Bandit
+  m_Name: AmbushButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -928,8 +928,8 @@ MonoBehaviour:
     prefab: {fileID: 919132149155446097, guid: fdacbd71888966949bf6e81d459601ef, type: 3}
   - type: 3
     prefab: {fileID: 919132149155446097, guid: b47ebfcc404381c4c9908318e7a9321a, type: 3}
-  RebelCastlePrefab: {fileID: 2407626995703613287, guid: b107b7c4ebba97f4683143ae50da2eac, type: 3}
-  RebelMoatPrefab: {fileID: 919132149155446097, guid: 770cbdc88a3c7094cba5b415ac903eeb, type: 3}
+  BanditCastlePrefab: {fileID: 2407626995703613287, guid: b107b7c4ebba97f4683143ae50da2eac, type: 3}
+  BanditMoatPrefab: {fileID: 919132149155446097, guid: 770cbdc88a3c7094cba5b415ac903eeb, type: 3}
   unknownResourcePrefabs:
   - {fileID: 3750417779599394199, guid: 23ae4066aace47840859f3da0e73baf1, type: 3}
   - {fileID: 9200304220082075631, guid: 82dfce904e708ee40b238213c7963fad, type: 3}
@@ -1728,7 +1728,7 @@ GameObject:
   - component: {fileID: 1454433294}
   - component: {fileID: 1454433296}
   m_Layer: 5
-  m_Name: King
+  m_Name: WorkerButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2081,7 +2081,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Create Path
+  m_text: Buy Path
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

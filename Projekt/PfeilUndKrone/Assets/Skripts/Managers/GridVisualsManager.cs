@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NetworkingDTOs;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [System.Serializable]
 public struct ResourcePrefabEntry
@@ -26,9 +27,9 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     public GameObject KingMoatPrefab;
     public List<ResourcePrefabEntry> resourcePrefabs;
 
-    [Header("Rebel Prefabs")]
-    public GameObject RebelCastlePrefab;
-    public GameObject RebelMoatPrefab;
+    [Header("Bandit Prefabs")]
+    [FormerlySerializedAs("RebelCastlePrefab")] public GameObject BanditCastlePrefab;
+    [FormerlySerializedAs("RebelMoatPrefab")] public GameObject BanditMoatPrefab;
     public List<GameObject> unknownResourcePrefabs;
 
     [Header("Other Prefabs")]
@@ -136,10 +137,10 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         if (map != null && map.TryGetValue(hex, out var ft))
         {
             if (IsCastleField(ft))
-                return role == PlayerRole.King ? KingCastlePrefab : RebelCastlePrefab;
+                return role == PlayerRole.King ? KingCastlePrefab : BanditCastlePrefab;
 
             if (IsMoatField(ft))
-                return role == PlayerRole.King ? KingMoatPrefab : RebelMoatPrefab;
+                return role == PlayerRole.King ? KingMoatPrefab : BanditMoatPrefab;
 
             if (TryFieldAsResource(ft, out var rt)
                 && resourceMap != null
@@ -152,7 +153,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             return desertPrefab;
         }
 
-        if (role == PlayerRole.Rebel && unknownResourcePrefabs != null && unknownResourcePrefabs.Count > 0)
+    if (role == PlayerRole.Bandit && unknownResourcePrefabs != null && unknownResourcePrefabs.Count > 0)
             return unknownResourcePrefabs[Random.Range(0, unknownResourcePrefabs.Count)];
 
         return desertPrefab;

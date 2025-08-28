@@ -10,8 +10,6 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private TextMeshProUGUI infoText;
     [SerializeField] private TextMeshProUGUI resourcesText;
     [SerializeField] private Button doneButton;
-
-    // New buttons for multiple paths and ambush buying
     [SerializeField] private Button kingPathButton;
     [SerializeField] private Button banditAmbushButton;
 
@@ -217,7 +215,7 @@ public class UIManager : Singleton<UIManager>
                 break;
                 
             case GameTurn.BanditPlanning:
-                if (myRole == PlayerRole.Rebel)
+                if (myRole == PlayerRole.Bandit)
                 {
                     SetDoneButtonActive(true);
                     SetKingButtonsActive(false);
@@ -245,13 +243,20 @@ public class UIManager : Singleton<UIManager>
     {
         Debug.Log($"Done button clicked! Current turn: {GameManager.Instance.CurrentTurn}");
         infoText.text = "";
+        
         if (GameManager.Instance.CurrentTurn == GameTurn.KingPlanning)
         {
             InteractionManager.Instance.SubmitPath();
+            // Hide King buttons after submitting
+            SetKingButtonsActive(false);
+            SetDoneButtonActive(false);
         }
         else if (GameManager.Instance.CurrentTurn == GameTurn.BanditPlanning)
         {
             InteractionManager.Instance.FinalizeAmbushes();
+            // Hide Bandit buttons after submitting
+            SetBanditButtonsActive(false);
+            SetDoneButtonActive(false);
         }
         else
         {
