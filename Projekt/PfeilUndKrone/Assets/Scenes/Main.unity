@@ -918,7 +918,7 @@ MonoBehaviour:
   interactionManager: {fileID: 1809301223}
   hexFieldContainer: {fileID: 751459215}
   KingCastlePrefab: {fileID: 919132149155446097, guid: 9f1fb143cec605449b8986a865f6b057, type: 3}
-  KingMoatPrefab: {fileID: 4294178659037335294, guid: 038e70ce473e48b4580944aca5107f39, type: 3}
+  KingMoatPrefab: {fileID: 919132149155446097, guid: 977f32f3baba86b4da5d2d904cea7af5, type: 3}
   resourcePrefabs:
   - type: 0
     prefab: {fileID: 919132149155446097, guid: 6b2956596f690d64797601b89637dae1, type: 3}
