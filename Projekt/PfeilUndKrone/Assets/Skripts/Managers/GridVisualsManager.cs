@@ -37,6 +37,10 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     public GameObject vertexMarkerPrefab;
     public GameObject edgeMarkerPrefab;
 
+    [Header("Rotation Settings")]
+    [Tooltip("Optionaler Feintuning-Offset, falls das Prefab lokal nicht exakt auf die Weltachse zeigt.")]
+    public float moatRotationOffsetY = 0f;
+
     [HideInInspector]
     private Dictionary<Hex, GameObject> hexObjects = new();
     private Dictionary<HexEdge, GameObject> hexEdgeObjects = new();
@@ -71,9 +75,13 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         foreach (var hex in gridGenerator.Model.AllHexes)
         {
             var role = GameManager.Instance.MyRole;
-            var prefab = ResolveFieldPrefab(hex, map, role);
 
-            var go = Instantiate(prefab, hex.ToWorld(radius), Quaternion.identity, hexFieldContainer);
+            FieldType ft = default;
+            bool hasField = map != null && map.TryGetValue(hex, out ft);
+
+            var (prefab, rot) = ResolveFieldVisual(hex, ft, hasField, role, radius);
+
+            var go = Instantiate(prefab, hex.ToWorld(radius), rot, hexFieldContainer);
             go.name = hex.ToString();
 
             var hm = go.AddComponent<HexMarker>(); hm.hex = hex; hm.interaction = interactionManager;
@@ -92,7 +100,9 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         foreach (var edge in gridGenerator.Model.AllEdges)
         {
             var pos = edge.ToWorld(radius);
-            var go = Instantiate(edgeMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
+            var rot = edge.Rotation;
+
+            var go = Instantiate(edgeMarkerPrefab, pos, rot, hexFieldContainer);
             go.name = edge.ToString();
             var em = go.AddComponent<EdgeMarker>(); em.edge = edge; em.interaction = interactionManager;
             hexEdgeObjects[edge] = go;
@@ -129,34 +139,72 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         return false;
     }
 
-    private GameObject ResolveFieldPrefab(
+    private (GameObject prefab, Quaternion rotation) ResolveFieldVisual(
     Hex hex,
-    Dictionary<Hex, FieldType> map,
-    PlayerRole role)
+    FieldType ft,
+    bool hasField,
+    PlayerRole role,
+    float hexRadius)
     {
-        if (map != null && map.TryGetValue(hex, out var ft))
+        GameObject prefab;
+        Quaternion rotation = Quaternion.identity;
+
+        if (hasField)
         {
             if (IsCastleField(ft))
-                return role == PlayerRole.King ? KingCastlePrefab : BanditCastlePrefab;
-
-            if (IsMoatField(ft))
-                return role == PlayerRole.King ? KingMoatPrefab : BanditMoatPrefab;
-
-            if (TryFieldAsResource(ft, out var rt)
-                && resourceMap != null
-                && resourceMap.TryGetValue(rt, out var resPrefab)
-                && resPrefab != null)
             {
-                return resPrefab;
+                prefab = role == PlayerRole.King ? KingCastlePrefab : BanditCastlePrefab;
+                rotation = role == PlayerRole.King ? Quaternion.identity : Quaternion.Euler(0f, 120f, 0f);
             }
-
-            return desertPrefab;
+            else if (IsMoatField(ft))
+            {
+                prefab = role == PlayerRole.King ? KingMoatPrefab : BanditMoatPrefab;
+                rotation = GetMoatRotation(hex, hexRadius);
+            }
+            else if (TryFieldAsResource(ft, out var rt)
+                         && resourceMap != null
+                         && resourceMap.TryGetValue(rt, out var resPrefab)
+                         && resPrefab != null)
+            {
+                prefab = resPrefab;
+                rotation = Quaternion.Euler(0f, Random.Range(0, 6) * 60f, 0f);
+            }
+            else
+                prefab = desertPrefab;
+        }
+        else
+        {
+            if (role == PlayerRole.Bandit && unknownResourcePrefabs != null && unknownResourcePrefabs.Count > 0)
+            {
+                prefab = unknownResourcePrefabs[Random.Range(0, unknownResourcePrefabs.Count)];
+                rotation = Quaternion.Euler(0f, 120f, 0f);
+            }
+            else
+                prefab = desertPrefab;
         }
 
-    if (role == PlayerRole.Bandit && unknownResourcePrefabs != null && unknownResourcePrefabs.Count > 0)
-            return unknownResourcePrefabs[Random.Range(0, unknownResourcePrefabs.Count)];
-
-        return desertPrefab;
+        return (prefab, rotation);
     }
 
+    private Quaternion GetMoatRotation(Hex hex, float hexRadius)
+    {
+        // Weltposition des Hex (Burgzentrum ist 0,0 → pos = (0,0,0))
+        Vector3 pos = hex.ToWorld(hexRadius);
+
+        // Falls irgendwas doch die Burg (0,0) wäre: neutral
+        if (pos.sqrMagnitude <= 1e-6f)
+            return Quaternion.identity;
+
+        // Winkel um Y ermitteln. Wichtig: Atan2(x, z) → Winkel relativ zur Z-Achse
+        float angleDeg = Mathf.Atan2(pos.x, pos.z) * Mathf.Rad2Deg;
+        if (angleDeg < 0f) angleDeg += 360f;
+
+        // In 60°-Sektoren runden (0..5)
+        int sector = Mathf.FloorToInt((angleDeg + 30f) / 60f) % 6;
+        if (sector < 0) sector += 6;
+
+        // Finale Y-Rotation inkl. optionalem Offset fürs Prefab
+        float y = sector * 60f + moatRotationOffsetY;
+        return Quaternion.Euler(0f, y, 0f);
+    }
 }

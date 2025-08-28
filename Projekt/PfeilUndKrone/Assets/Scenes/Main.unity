@@ -940,6 +940,7 @@ MonoBehaviour:
   desertPrefab: {fileID: 919132149155446097, guid: b47ebfcc404381c4c9908318e7a9321a, type: 3}
   vertexMarkerPrefab: {fileID: 4584628830818376186, guid: 180a620930ade454c8bcf5c0e4f01742, type: 3}
   edgeMarkerPrefab: {fileID: 919132149155446097, guid: 6ba63ef5d1965234781cad873ab556ee, type: 3}
+  moatRotationOffsetY: 0
 --- !u!1 &653193444
 GameObject:
   m_ObjectHideFlags: 0
@@ -2562,7 +2563,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7945208189222d439a12603d8331d99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  selectedRole: 2
+  selectedRole: 1
   testResourceMap:
   - q: -3
     r: 0

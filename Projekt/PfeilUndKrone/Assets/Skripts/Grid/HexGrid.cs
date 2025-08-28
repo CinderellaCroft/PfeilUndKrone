@@ -69,6 +69,24 @@ public struct HexEdge : IEquatable<HexEdge>
         return (a + b) / 2f;
     }
 
+    public Quaternion Rotation
+    {
+        get
+        {
+            float y = Direction switch
+            {
+                HexDirection.Right => 0f,
+                HexDirection.BottomRight => 60f,
+                HexDirection.BottomLeft => 120f,
+                HexDirection.Left => 180f,
+                HexDirection.TopLeft => 240f,
+                HexDirection.TopRight => 300f,
+                _ => 0f
+            };
+            return Quaternion.Euler(0f, y, 0f);
+        }
+    }
+
     public override string ToString() => $"Edge({Hex}, {Direction})";
 
     public Hex GetNeighbor() => HexNeighbor(Hex, Direction);
