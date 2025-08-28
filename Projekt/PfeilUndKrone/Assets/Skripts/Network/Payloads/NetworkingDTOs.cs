@@ -118,16 +118,23 @@ namespace NetworkingDTOs
         public HexEdge payload;
     }
 
+    // kingPaths: gs.king.submittedPaths,
+    // banditAmbushes: gs.bandit.submittedAmbushes,
+    // banditBonus: { ...gameState.bandit.resources },
+    // kingBonus: { ...gameState.king.resources },
+    // outcome: outcome,
+
 
     [Serializable]
     public class ExecuteRoundPayload
     {
         public SerializablePathData[] kingPaths; // Array of path objects from server
         public SerializableAmbushEdge[] banditAmbushes; // Changed from List<AmbushEdge> to match server format
-        public List<HexEdge> outcome;
-        public ResourcePayload winnerResourceUpdate;
 
-        public string winner;
+        public ResourcePayload banditBonus;
+        public ResourcePayload kingBonus;
+
+        public List<HexEdge> outcome; //wird nicht mehr verwendet??
     }
 
     [Serializable]
@@ -224,15 +231,15 @@ namespace NetworkingDTOs
     {
         public SerializableHexVertex cornerA;
         public SerializableHexVertex cornerB;
-        
+
         public SerializableAmbushEdge() { }
-        
+
         public SerializableAmbushEdge(AmbushEdge edge)
         {
             cornerA = new SerializableHexVertex(edge.cornerA);
             cornerB = new SerializableHexVertex(edge.cornerB);
         }
-        
+
         public AmbushEdge ToAmbushEdge()
         {
             return new AmbushEdge

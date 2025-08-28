@@ -166,7 +166,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "ambush_approved":
                         var ambushMessage = JsonUtility.FromJson<ServerMessageAmbushApproved>(messageString);
                         RaiseAmbushConfirmed(ambushMessage.payload);
-                        
+
                         // Notify InteractionManager that ambush purchase was approved
                         InteractionManager.Instance.OnAmbushPurchaseApproved();
                         break;
@@ -174,7 +174,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "ambush_denied":
                         Debug.LogError("❌ Server denied ambush purchase - Not enough resources!");
                         UIManager.Instance.UpdateInfoText("Ambush denied: Not enough resources!");
-                        
+
                         // Notify InteractionManager that ambush purchase was denied
                         InteractionManager.Instance.OnAmbushPurchaseDenied("Not enough resources!");
                         break;
@@ -182,10 +182,10 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "resource_update":
                         var resourceMessage = JsonUtility.FromJson<ServerMessageResourceUpdate>(messageString);
                         UIManager.Instance.UpdateResourcesText(resourceMessage.payload.gold, resourceMessage.payload.wood, resourceMessage.payload.grain);
-                        
+
                         // Update InteractionManager with new gold amount for ambush buying
                         InteractionManager.Instance.UpdateGoldAmount(resourceMessage.payload.gold);
-                        
+
                         // Update bandit ambush button text to reflect new gold amount
                         if (GameManager.Instance.MyRole == PlayerRole.Bandit)
                         {
@@ -196,29 +196,27 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "execute_round":
                         var execMsg = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString).payload;
 
-                        var r = execMsg.winnerResourceUpdate;
 
-                        //ResourceUpdate - Nur der Gewinner bekommt die neuen Ressourcen
-                        if (GameManager.Instance.MyRole.ToString() == execMsg.winner)
-                        {
-                            UIManager.Instance.UpdateResourcesText(r.gold, r.wood, r.grain);
-                            Debug.Log($"You won! Updated resources: 💰{r.gold}, 🪵{r.wood}, 🌾{r.grain}");
-                        }
-                        else
-                        {
-                            Debug.Log($"You lost this round. Winner: {execMsg.winner}");
-                        }
+                        var r = (GameManager.Instance.MyRole.ToString() == "King")
+                                ? execMsg.kingBonus
+                                : execMsg.banditBonus;
+
+                        UIManager.Instance.UpdateResourcesText(r.gold, r.wood, r.grain);
+                        Debug.Log($"Updated resources: 💰{r.gold}, 🪵{r.wood}, 🌾{r.grain}");
+
+
+
 
                         // 3) Start synchronized animation for both players
                         UnityMainThreadDispatcher.Instance().Enqueue(() =>
                         {
                             List<NetworkingDTOs.AmbushEdge> convertedAmbushes = new List<NetworkingDTOs.AmbushEdge>();
-                            
+
                             // Process ambushes
                             if (execMsg.banditAmbushes != null && execMsg.banditAmbushes.Length > 0)
                             {
                                 Debug.Log($"[NM] My role: {GameManager.Instance?.MyRole}, Processing {execMsg.banditAmbushes.Length} serialized ambushes for animation");
-                                
+
                                 // Convert SerializableAmbushEdge[] to List<AmbushEdge>
                                 for (int i = 0; i < execMsg.banditAmbushes.Length; i++)
                                 {
@@ -241,13 +239,13 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                             {
                                 Debug.Log($"[NM] My role: {GameManager.Instance?.MyRole}, No banditAmbushes to display");
                             }
-                            
+
                             // Process king paths (multiple paths now)
                             List<List<HexVertex>> allKingPaths = new List<List<HexVertex>>();
                             if (execMsg.kingPaths != null && execMsg.kingPaths.Length > 0)
                             {
                                 Debug.Log($"[NM] My role: {GameManager.Instance?.MyRole}, Processing {execMsg.kingPaths.Length} King paths.");
-                                
+
                                 // Convert all paths from SerializableHexVertex[] to List<HexVertex>
                                 foreach (var pathData in execMsg.kingPaths)
                                 {
@@ -260,7 +258,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                             {
                                 Debug.LogWarning($"❌ Fehler: [NM] My role: {GameManager.Instance?.MyRole}, No kingPaths in execute_round payload.");
                             }
-                            
+
                             // Start synchronized animation with multiple paths
                             if (allKingPaths.Count > 0)
                             {
@@ -271,7 +269,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                                 // If no paths, just display ambushes
                                 InteractionManager.Instance.DisplayAnimationOrbs(convertedAmbushes);
                             }
-                            
+
                             // Schedule cleanup after animation completes (10 seconds as per server)
                             StartCoroutine(DelayedAnimationCleanup(10.5f));
                         });
@@ -281,18 +279,18 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "new_round":
                         var newRoundMsg = JsonUtility.FromJson<ServerMessageNewRound>(messageString);
                         var roundPayload = newRoundMsg.payload;
-                        
+
                         Debug.Log($"Round {roundPayload.roundNumber} started! Resources: 💰{roundPayload.resources.gold}, 🪵{roundPayload.resources.wood}, 🌾{roundPayload.resources.grain}");
-                        
+
                         // IMPORTANT: Clear all workers, paths, and visual elements at start of new round
                         InteractionManager.Instance.ForceCompleteReset();
-                        
+
                         UIManager.Instance.UpdateRoundNumber(roundPayload.roundNumber);
                         UIManager.Instance.UpdateResourcesText(roundPayload.resources.gold, roundPayload.resources.wood, roundPayload.resources.grain);
-                        
+
                         // Update InteractionManager with new gold amount
                         InteractionManager.Instance.UpdateGoldAmount(roundPayload.resources.gold);
-                        
+
                         // Update bandit button text if bandit player
                         if (GameManager.Instance.MyRole == PlayerRole.Bandit)
                         {
@@ -372,7 +370,7 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
 
         await websocket.SendText(finalJson);
     }
-    
+
     // Coroutine to clean up animation after delay
     private System.Collections.IEnumerator DelayedAnimationCleanup(float delay)
     {
