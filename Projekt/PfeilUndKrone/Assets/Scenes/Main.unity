@@ -730,7 +730,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c44b8d8b294aa34eba57f77770c148b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  networkService: {fileID: 1920741220}
+  networkService: {fileID: 1828881144}
   gridGenerator: {fileID: 88634056}
   visualsManager: {fileID: 627713331}
   interactionManager: {fileID: 1809301223}
@@ -939,7 +939,7 @@ MonoBehaviour:
   - {fileID: 1873717335276492811, guid: 82b1caf19fd2daf44bff09e220aabe01, type: 3}
   desertPrefab: {fileID: 919132149155446097, guid: b47ebfcc404381c4c9908318e7a9321a, type: 3}
   vertexMarkerPrefab: {fileID: 4584628830818376186, guid: 180a620930ade454c8bcf5c0e4f01742, type: 3}
-  edgeMarkerPrefab: {fileID: 919132149155446097, guid: bb309e0a881eb8647823ef908b1575af, type: 3}
+  edgeMarkerPrefab: {fileID: 919132149155446097, guid: 6ba63ef5d1965234781cad873ab556ee, type: 3}
 --- !u!1 &653193444
 GameObject:
   m_ObjectHideFlags: 0
@@ -2508,7 +2508,7 @@ MonoBehaviour:
   gridGen: {fileID: 88634056}
   net: {fileID: 1920741220}
   workerPrefab: {fileID: 2851964114763607541, guid: 63fb6c277f80d1140b502224c213644f, type: 3}
-  ambushOrb: {fileID: 2851964114763607541, guid: 637658ff1dd3d0844920e3017da2d928, type: 3}
+  ambushOrb: {fileID: 919132149155446097, guid: abd80ae4883b15e4ab3408b3a89e0763, type: 3}
   workerSpeed: 1
   ambushLineMaterial: {fileID: 0}
   maxAmbushes: 5
@@ -2562,7 +2562,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7945208189222d439a12603d8331d99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  selectedRole: 1
+  selectedRole: 2
   testResourceMap:
   - q: -3
     r: 0
