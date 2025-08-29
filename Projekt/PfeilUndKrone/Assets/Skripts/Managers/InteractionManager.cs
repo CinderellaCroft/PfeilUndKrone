@@ -6,7 +6,7 @@ using UnityEngine;
 using NetworkingDTOs;
 
 public enum InteractionMode { None, PathSelection, AmbushPlacement }
-public enum PathCreationState { NotCreating, Creating, ReadyToConfirm }
+public enum PathCreationState { NotCreating, SelectingResourceField, SelectingStartVertex, Creating, ReadyToConfirm }
 
 public class InteractionManager : Singleton<InteractionManager>
 {
@@ -33,6 +33,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
     // Multiple paths system for King
     private List<List<HexVertex>> completedPaths = new(); // All completed paths
+    private List<Hex> completedPathResourceFields = new(); // Resource fields for each completed path
     private Dictionary<int, Color> pathColorMap = new(); // Color for each path
     private PathCreationState pathCreationState = PathCreationState.NotCreating;
     private int currentPathIndex = -1;
@@ -42,6 +43,10 @@ public class InteractionManager : Singleton<InteractionManager>
     private HashSet<HexVertex> validNextVertices = new();
     private List<HexVertex> centralVertices;
     private bool pathComplete;
+    
+    // Resource field selection for path starting
+    private Hex selectedResourceField = default;
+    private HashSet<HexVertex> availableStartVertices = new();
     private GameObject workerObj;
     private List<Vector3> serverPathWorld = new();
     private int pathStep;
@@ -109,7 +114,10 @@ public class InteractionManager : Singleton<InteractionManager>
         if (currentMode == InteractionMode.AmbushPlacement) DrawAmbushLines();
     }
 
-    public void OnHexClicked(Hex h) { /* ... */ }
+    public void OnHexClicked(Hex h) 
+    { 
+        if (currentMode == InteractionMode.PathSelection) HandleResourceFieldClick(h);
+    }
     public void OnEdgeClicked(HexEdge e) { /* ... */ }
 
     public void OnVertexClicked(HexVertex v)
@@ -251,20 +259,22 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         if (currentMode != InteractionMode.PathSelection) return;
 
-        if (pathCreationState == PathCreationState.Creating)
+        if (pathCreationState == PathCreationState.Creating || pathCreationState == PathCreationState.SelectingResourceField || pathCreationState == PathCreationState.SelectingStartVertex)
         {
             Debug.LogError("❌ Error: Already creating a path! Confirm current path first.");
             return;
         }
 
-        pathCreationState = PathCreationState.Creating;
+        pathCreationState = PathCreationState.SelectingResourceField;
         currentPathIndex = completedPaths.Count;
 
         selectedVertices.Clear();
         validNextVertices.Clear();
+        availableStartVertices.Clear();
+        selectedResourceField = default;
         pathComplete = false;
 
-        Debug.Log($"✅ Started creating path #{currentPathIndex + 1}");
+        Debug.Log($"✅ Started creating path #{currentPathIndex + 1} - First select a resource field");
     }
 
     public void ConfirmCurrentPath()
@@ -283,6 +293,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         var pathList = selectedVertices.ToList();
         completedPaths.Add(pathList);
+        completedPathResourceFields.Add(selectedResourceField);
 
         Color pathColor = pathColors[currentPathIndex % pathColors.Length];
         pathColorMap[currentPathIndex] = pathColor;
@@ -292,9 +303,12 @@ public class InteractionManager : Singleton<InteractionManager>
         pathCreationState = PathCreationState.NotCreating;
         selectedVertices.Clear();
         validNextVertices.Clear();
+        availableStartVertices.Clear();
+        selectedResourceField = default;
         pathComplete = false;
 
-        Debug.Log($"✅ Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices");
+        var resourceField = completedPathResourceFields[currentPathIndex];
+        Debug.Log($"✅ Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices starting from resource field ({resourceField.Q},{resourceField.R})");
         currentPathIndex = -1;
     }
 
@@ -321,6 +335,10 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             case PathCreationState.NotCreating:
                 return "Pfad erstellen";
+            case PathCreationState.SelectingResourceField:
+                return "Ressourcenfeld wählen";
+            case PathCreationState.SelectingStartVertex:
+                return "Startecke wählen";
             case PathCreationState.Creating:
                 return pathComplete ? "Pfad bestätigen" : "Pfad erstellen";
             case PathCreationState.ReadyToConfirm:
@@ -413,10 +431,79 @@ public class InteractionManager : Singleton<InteractionManager>
         return placedAmbushes.Count;
     }
 
+    // === RESOURCE FIELD HANDLING ===
+    void HandleResourceFieldClick(Hex h)
+    {
+        Debug.Log($"🔍 HandleResourceFieldClick called with hex ({h.Q},{h.R}), current state: {pathCreationState}");
+        
+        if (pathCreationState != PathCreationState.SelectingResourceField) 
+        {
+            Debug.Log($"❌ Not in resource field selection state. Current state: {pathCreationState}");
+            return;
+        }
+        
+        // Check if this is a valid resource field (not Castle or Moat)
+        var resourceMap = GameManager.Instance?.GetResourceMap();
+        if (resourceMap == null || !resourceMap.ContainsKey(h))
+        {
+            Debug.LogError($"❌ Error: Invalid hex field selected! ResourceMap null: {resourceMap == null}, Contains key: {resourceMap?.ContainsKey(h)}");
+            return;
+        }
+        
+        var fieldType = resourceMap[h];
+        Debug.Log($"🔍 Field type at ({h.Q},{h.R}): {fieldType}");
+        
+        if (fieldType == FieldType.Castle || fieldType == FieldType.Moat)
+        {
+            Debug.LogError($"❌ Error: Cannot start path from {fieldType} field! Select a resource field (Wood, Wheat, Ore, Desert).");
+            return;
+        }
+        
+        selectedResourceField = h;
+        pathCreationState = PathCreationState.SelectingStartVertex;
+        
+        // Get all vertices of the selected resource field
+        availableStartVertices.Clear();
+        for (int i = 0; i < 6; i++)
+        {
+            var vertex = new HexVertex(h, (VertexDirection)i);
+            availableStartVertices.Add(vertex);
+            ToggleVertexHighlight(vertex); // Highlight available start vertices
+        }
+        
+        Debug.Log($"✅ Resource field {fieldType} at ({h.Q},{h.R}) selected. Now select a corner to start the path.");
+    }
+
     // === PATH HANDLING ===
     void HandlePathClick(HexVertex v)
     {
         if (pathComplete || isMoving) return;
+        
+        if (pathCreationState == PathCreationState.SelectingStartVertex)
+        {
+            // Check if clicked vertex is one of the available start vertices
+            if (!availableStartVertices.Contains(v))
+            {
+                Debug.LogError("❌ Error: Select a corner of the selected resource field!");
+                return;
+            }
+            
+            // Clear highlights from available vertices and only highlight the selected one
+            foreach (var vertex in availableStartVertices)
+            {
+                if (!vertex.Equals(v))
+                {
+                    ToggleVertexHighlight(vertex); // Remove highlight
+                }
+            }
+            
+            selectedVertices.Add(v);
+            pathCreationState = PathCreationState.Creating;
+            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v));
+            
+            Debug.Log($"✅ Start vertex selected: ({v.Hex.Q},{v.Hex.R}) Direction: {v.Direction}");
+            return;
+        }
 
         if (pathCreationState != PathCreationState.Creating)
         {
@@ -426,13 +513,6 @@ public class InteractionManager : Singleton<InteractionManager>
 
         Debug.Log($"Vertex clicked: ({v.Hex.Q},{v.Hex.R}) Direction: {v.Direction}");
 
-        if (!selectedVertices.Any())
-        {
-            selectedVertices.Add(v);
-            ToggleVertexHighlight(v);
-            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v));
-            return;
-        }
         if (!validNextVertices.Contains(v))
         {
             validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last()));
@@ -466,11 +546,20 @@ public class InteractionManager : Singleton<InteractionManager>
             return;
         }
 
-        var serializablePaths = completedPaths.Select(path =>
-            new SerializablePathData
-            {
-                path = path.Select(v => new SerializableHexVertex(v)).ToArray()
-            }).ToArray();
+        var serializablePaths = completedPaths.Select((path, index) => 
+        {
+            var resourceField = completedPathResourceFields[index];
+            var resourceMap = GameManager.Instance?.GetResourceMap();
+            var resourceType = resourceMap?.ContainsKey(resourceField) == true ? resourceMap[resourceField].ToString() : "Unknown";
+            
+            return new SerializablePathData 
+            { 
+                path = path.Select(v => new SerializableHexVertex(v)).ToArray(),
+                resourceFieldQ = resourceField.Q,
+                resourceFieldR = resourceField.R,
+                resourceType = resourceType
+            };
+        }).ToArray();
 
         var pathData = new PlaceWorkersPayload { paths = serializablePaths };
 
@@ -912,6 +1001,8 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         selectedVertices.Clear();
         validNextVertices.Clear();
+        availableStartVertices.Clear();
+        selectedResourceField = default;
         pathComplete = false;
         isMoving = false;
         workerObj?.SetActive(false);
@@ -944,6 +1035,8 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         selectedVertices.Clear();
         validNextVertices.Clear();
+        availableStartVertices.Clear();
+        selectedResourceField = default;
         pathComplete = false;
         isMoving = false;
         workerObj?.SetActive(false);
@@ -970,6 +1063,7 @@ public class InteractionManager : Singleton<InteractionManager>
         pathCreationState = PathCreationState.NotCreating;
         currentPathIndex = -1;
         completedPaths.Clear();
+        completedPathResourceFields.Clear();
         pathColorMap.Clear();
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;

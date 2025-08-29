@@ -139,4 +139,9 @@ public class GameManager : Singleton<GameManager>
     {
         interactionManager.ExecuteServerPaths(paths);
     }
+    
+    public Dictionary<Hex, FieldType> GetResourceMap()
+    {
+        return resourceMap;
+    }
 }

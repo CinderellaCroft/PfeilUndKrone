@@ -211,6 +211,9 @@ namespace NetworkingDTOs
     public class SerializablePathData
     {
         public SerializableHexVertex[] path;
+        public int resourceFieldQ;
+        public int resourceFieldR;
+        public string resourceType;
     }
 
     [Serializable]
