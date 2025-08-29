@@ -246,17 +246,25 @@ public class UIManager : Singleton<UIManager>
         
         if (GameManager.Instance.CurrentTurn == GameTurn.KingPlanning)
         {
-            InteractionManager.Instance.SubmitPath();
-            // Hide King buttons after submitting
-            SetKingButtonsActive(false);
-            SetDoneButtonActive(false);
+            bool success = InteractionManager.Instance.SubmitPath();
+            if (success)
+            {
+                // Hide King buttons only after successful submission
+                SetKingButtonsActive(false);
+                SetDoneButtonActive(false);
+            }
+            // If submission failed, keep buttons visible so player can try again
         }
         else if (GameManager.Instance.CurrentTurn == GameTurn.BanditPlanning)
         {
-            InteractionManager.Instance.FinalizeAmbushes();
-            // Hide Bandit buttons after submitting
-            SetBanditButtonsActive(false);
-            SetDoneButtonActive(false);
+            bool success = InteractionManager.Instance.FinalizeAmbushes();
+            if (success)
+            {
+                // Hide Bandit buttons only after successful submission
+                SetBanditButtonsActive(false);
+                SetDoneButtonActive(false);
+            }
+            // If finalization failed, keep buttons visible so player can try again
         }
         else
         {

@@ -530,20 +530,20 @@ public class InteractionManager : Singleton<InteractionManager>
         validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v).Except(selectedVertices));
     }
 
-    public void SubmitPath()
+    public bool SubmitPath()
     {
         if (currentMode != InteractionMode.PathSelection)
         {
             Debug.LogError("❌ Error: Not in path selection mode!");
             UIManager.Instance.UpdateInfoText("Error: Not in path selection mode!");
-            return;
+            return false;
         }
 
         if (completedPaths.Count == 0)
         {
             Debug.LogError("❌ Error: No paths created!");
             UIManager.Instance.UpdateInfoText("Error: No paths created!");
-            return;
+            return false;
         }
 
         var serializablePaths = completedPaths.Select((path, index) => 
@@ -568,6 +568,7 @@ public class InteractionManager : Singleton<InteractionManager>
         DisableInteraction();
 
         ResetAllVertexHighlights();
+        return true;
     }
 
     public void ExecuteServerPath(List<HexVertex> path)
@@ -853,20 +854,20 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
-    public void FinalizeAmbushes()
+    public bool FinalizeAmbushes()
     {
         if (currentMode != InteractionMode.AmbushPlacement)
         {
             Debug.LogError("❌ Error: Not in ambush placement mode!");
             UIManager.Instance.UpdateInfoText("Error: Not in ambush placement mode!");
-            return;
+            return false;
         }
 
         if (placedAmbushes.Count == 0)
         {
             Debug.LogError("❌ Error: No ambushes placed!");
             UIManager.Instance.UpdateInfoText("Error: No ambushes placed!");
-            return;
+            return false;
         }
 
         var serializableAmbushes = placedAmbushes.Select(a => new SerializableAmbushEdge(a)).ToArray();
@@ -881,9 +882,12 @@ public class InteractionManager : Singleton<InteractionManager>
         catch (Exception e)
         {
             Debug.LogError($"❌ Error: Failed to send ambushes to server: {e.Message}");
+            UIManager.Instance.UpdateInfoText($"Error: Failed to send ambushes to server: {e.Message}");
+            return false;
         }
 
         ResetVertexHighlightsKeepAmbushVertices();
+        return true;
     }
 
     void DrawAmbushLines()
