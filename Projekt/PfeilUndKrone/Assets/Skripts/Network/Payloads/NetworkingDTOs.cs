@@ -287,6 +287,19 @@ namespace NetworkingDTOs
         public LobbyJoinedPayload payload;
     }
 
+    // Add these new classes to the end of NetworkingDTOs.cs
 
+    [Serializable]
+    public class GameOverPayload
+    {
+        public string winner;
+        public string reason;
+    }
 
+    [Serializable]
+    public class ServerMessageGameOver
+    {
+        public string type;
+        public GameOverPayload payload;
+    }
 }

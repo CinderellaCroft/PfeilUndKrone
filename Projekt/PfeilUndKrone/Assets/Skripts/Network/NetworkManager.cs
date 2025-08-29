@@ -3,13 +3,13 @@ using NativeWebSocket;
 using System.Collections.Generic;
 using System;
 using System.Linq;
-using PimDeWitte.UnityMainThreadDispatcher; // Make sure you have imported this asset
+using PimDeWitte.UnityMainThreadDispatcher;
 using NetworkingDTOs;
 
-
-public class NetworkManager : SingletonNetworkService<NetworkSimulator>
+public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
     private WebSocket websocket;
+    private bool isGameOver = false; // Flag to track if the game has ended.
 
     async void Start()
     {
@@ -88,11 +88,6 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                     case "grid_data":
                         RaiseGridDataReady();
                         break;
-
-                    // case "resource_map":
-                    //     var rm = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
-                    //     RaiseResourceMapReceived(rm.payload);
-                    //     break;
 
                     case "resource_map":
                         {
@@ -276,6 +271,20 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
                         break;
 
 
+                    case "game_over":
+                        isGameOver = true; // Keep this for the coroutine
+                        var gameOverMsg = JsonUtility.FromJson<ServerMessageGameOver>(messageString);
+                        string winner = gameOverMsg.payload.winner;
+                        string reason = gameOverMsg.payload.reason;
+
+                        Debug.LogWarning("--- RECEIVED 'game_over'. Displaying end panel. ---");
+
+                        GameManager.Instance.EndGame();
+
+                        bool amIWinner = GameManager.Instance.MyRole.ToString() == winner;
+                        UIManager.Instance.ShowEndGamePanel(amIWinner);
+                        break;
+
                     case "new_round":
                         var newRoundMsg = JsonUtility.FromJson<ServerMessageNewRound>(messageString);
                         var roundPayload = newRoundMsg.payload;
@@ -375,6 +384,12 @@ public class NetworkManager : SingletonNetworkService<NetworkSimulator>
     private System.Collections.IEnumerator DelayedAnimationCleanup(float delay)
     {
         yield return new WaitForSeconds(delay);
+
+        Debug.LogWarning($"--- Coroutine 'DelayedAnimationCleanup' has finished waiting. isGameOver = {isGameOver} ---");
+
+        // Only run cleanup logic if the game is NOT over.
+        if (isGameOver) yield break;
+
         Debug.Log($"[NM] DelayedAnimationCleanup: Cleaning up animation for {GameManager.Instance?.MyRole}");
         InteractionManager.Instance.CleanupAfterRoundAnimation();
     }

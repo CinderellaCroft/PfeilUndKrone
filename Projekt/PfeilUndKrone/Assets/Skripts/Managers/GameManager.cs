@@ -19,6 +19,8 @@ public class GameManager : Singleton<GameManager>
 
     private int currentRoundNumber = 0; // Track current round
 
+    public bool IsGameOver { get; private set; } = false;
+
     public PlayerRole MyRole { get; private set; } = PlayerRole.None;
     public GameTurn CurrentTurn { get; private set; } = GameTurn.Setup;
 
@@ -35,12 +37,17 @@ public class GameManager : Singleton<GameManager>
         networkService.OnResourceMapReceived -= OnResourceMap;
     }
 
+    public void EndGame()
+    {
+        IsGameOver = true;
+    }
+
     void SetRole(string roleName)
     {
-    if (roleName == PlayerRole.King.ToString()) MyRole = PlayerRole.King;
-    else if (roleName == PlayerRole.Bandit.ToString()) MyRole = PlayerRole.Bandit;
+        if (roleName == PlayerRole.King.ToString()) MyRole = PlayerRole.King;
+        else if (roleName == PlayerRole.Bandit.ToString()) MyRole = PlayerRole.Bandit;
         else Debug.Log($"Unknown role: '{roleName}', role remains: {MyRole}");
-        
+
 
         UIManager.Instance.UpdateRoleText(MyRole);
     }
@@ -83,31 +90,36 @@ public class GameManager : Singleton<GameManager>
 
     public void StartKingTurn()
     {
+        if (IsGameOver) return;
         // Only increment round number at the start of king's turn (beginning of new round)
         if (CurrentTurn == GameTurn.Setup || CurrentTurn == GameTurn.Executing)
         {
             currentRoundNumber++;
             Debug.Log($"Round {currentRoundNumber} started!");
             UIManager.Instance.UpdateRoundNumber(currentRoundNumber);
-            
+
             // Reset vertex highlights when new round starts
             interactionManager.ForceCompleteReset();
         }
-        
+
         CurrentTurn = GameTurn.KingPlanning;
+
+        Debug.Log("GameManager.StartKingTurn is now setting UI visibility.");
+
         UIManager.Instance.UpdateTurnStatus("King's Turn: Select Path");
         interactionManager.EnableInteraction(PlayerRole.King);
-        
+
         // Update button visibility based on turn and role
         UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
 
     public void StartBanditTurn()
     {
+        if (IsGameOver) return;
         CurrentTurn = GameTurn.BanditPlanning;
         UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
-    interactionManager.EnableInteraction(PlayerRole.Bandit);
-        
+        interactionManager.EnableInteraction(PlayerRole.Bandit);
+
         // Update button visibility based on turn and role
         UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
@@ -116,10 +128,10 @@ public class GameManager : Singleton<GameManager>
     {
         CurrentTurn = GameTurn.Executing;
         UIManager.Instance.UpdateTurnStatus("Executing Round...");
-        
+
         // Hide all buttons during execution
         UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
-        
+
         interactionManager.DisableInteraction();
 
         // Execute all paths, not just the first one
@@ -134,7 +146,7 @@ public class GameManager : Singleton<GameManager>
     {
         interactionManager.ExecuteServerPath(path);
     }
-    
+
     private void ExecuteWorkerPaths(List<List<HexVertex>> paths)
     {
         interactionManager.ExecuteServerPaths(paths);

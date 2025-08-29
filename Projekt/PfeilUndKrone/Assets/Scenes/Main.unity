@@ -1874,6 +1874,8 @@ MonoBehaviour:
   doneButton: {fileID: 688913518}
   kingPathButton: {fileID: 1454433296}
   banditAmbushButton: {fileID: 558135603}
+  winnerPanel: {fileID: 231203891}
+  loserPanel: {fileID: 2000159011}
 --- !u!4 &1585417541
 Transform:
   m_ObjectHideFlags: 0
