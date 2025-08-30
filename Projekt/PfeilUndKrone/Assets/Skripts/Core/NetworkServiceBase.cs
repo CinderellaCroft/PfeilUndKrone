@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using NetworkingDTOs;
+using System.Threading.Tasks;
 
 public abstract class NetworkServiceBase : MonoBehaviour
 {
@@ -22,4 +23,7 @@ public abstract class NetworkServiceBase : MonoBehaviour
         => OnAmbushConfirmed?.Invoke(edge);
 
     public abstract void Send(string type, object payload);
+    public abstract Task Connect();
+    public abstract Task Disconnect();
+    public abstract bool IsConnected { get; }
 }

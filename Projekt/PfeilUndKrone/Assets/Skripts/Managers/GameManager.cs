@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NetworkingDTOs;
 using UnityEngine;
+using System.Threading.Tasks;
 
 public enum PlayerRole { None, King, Bandit }
 public enum GameTurn { Setup, KingPlanning, BanditPlanning, Executing }
@@ -29,6 +30,7 @@ public class GameManager : Singleton<GameManager>
         networkService.OnRoleAssigned += SetRole;
         networkService.OnGridDataReady += OnGridReady;
         networkService.OnResourceMapReceived += OnResourceMap;
+        this.networkService.Connect();
     }
     void OnDisable()
     {
@@ -37,8 +39,11 @@ public class GameManager : Singleton<GameManager>
         networkService.OnResourceMapReceived -= OnResourceMap;
     }
 
-    public void EndGame()
+    public async void EndGame()
     {
+        _ = this.networkService.Disconnect();
+        await Task.Delay(500);
+        _ = this.networkService.Connect();
         IsGameOver = true;
     }
 
@@ -151,7 +156,7 @@ public class GameManager : Singleton<GameManager>
     {
         interactionManager.ExecuteServerPaths(paths);
     }
-    
+
     public Dictionary<Hex, FieldType> GetResourceMap()
     {
         return resourceMap;
