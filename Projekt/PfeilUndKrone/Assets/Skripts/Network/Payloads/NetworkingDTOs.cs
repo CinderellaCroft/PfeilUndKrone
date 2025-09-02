@@ -95,6 +95,7 @@ namespace NetworkingDTOs
     {
         public int roundNumber;
         public ResourcePayload resources;
+        public int workers; // For King's purchased workers
     }
 
     [Serializable]
@@ -257,6 +258,13 @@ namespace NetworkingDTOs
     public class PlaceAmbushesPayload
     {
         public SerializableAmbushEdge[] ambushes;
+    }
+
+    [Serializable]
+    public class BuyWorkerPayload
+    {
+        public int grainCost;
+        public int woodCost;
     }
 
     [Serializable]

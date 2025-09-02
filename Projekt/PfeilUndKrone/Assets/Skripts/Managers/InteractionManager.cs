@@ -64,6 +64,14 @@ public class InteractionManager : Singleton<InteractionManager>
     private int purchasedAmbushes = 0; // How many ambushes bandit has purchased
     private bool isInAmbushPlacementMode = false;
 
+    // King resources and worker buying system
+    private int currentGrain = 0; // Will be updated from server
+    private int currentWood = 0; // Will be updated from server
+    private const int workerGrainCost = 30;
+    private const int workerWoodCost = 10;
+    private int purchasedWorkers = 0; // How many workers king has purchased
+    private int usedWorkers = 0; // How many workers king has used
+
     // Vertex highlighting system
     private HashSet<HexVertex> highlightedVertices = new();
     private Color originalVertexColor = Color.red;
@@ -265,6 +273,14 @@ public class InteractionManager : Singleton<InteractionManager>
             return;
         }
 
+        // Check if King has available workers
+        if (GetAvailableWorkerCount() <= 0)
+        {
+            Debug.LogError("❌ Error: No workers available! Buy a worker first.");
+            UIManager.Instance.UpdateInfoText("Error: No workers available! Buy a worker first.");
+            return;
+        }
+
         pathCreationState = PathCreationState.SelectingResourceField;
         currentPathIndex = completedPaths.Count;
 
@@ -274,7 +290,7 @@ public class InteractionManager : Singleton<InteractionManager>
         selectedResourceField = default;
         pathComplete = false;
 
-        Debug.Log($"✅ Started creating path #{currentPathIndex + 1} - First select a resource field");
+        Debug.Log($"✅ Started creating path #{currentPathIndex + 1} - First select a resource field (Available workers: {GetAvailableWorkerCount()})");
     }
 
     public void ConfirmCurrentPath()
@@ -290,6 +306,9 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.LogError("❌ Error: Path is not complete!");
             return;
         }
+
+        // Use up one worker
+        usedWorkers++;
 
         var pathList = selectedVertices.ToList();
         completedPaths.Add(pathList);
@@ -308,7 +327,9 @@ public class InteractionManager : Singleton<InteractionManager>
         pathComplete = false;
 
         var resourceField = completedPathResourceFields[currentPathIndex];
-        Debug.Log($"✅ Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices starting from resource field ({resourceField.Q},{resourceField.R})");
+        Debug.Log($"✅ Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices starting from resource field ({resourceField.Q},{resourceField.R}) - Workers available: {GetAvailableWorkerCount()}");
+        UIManager.Instance.UpdateInfoText($"Path confirmed! Workers available: {GetAvailableWorkerCount()}");
+        UIManager.Instance.UpdateWorkerText();
         currentPathIndex = -1;
     }
 
@@ -334,15 +355,17 @@ public class InteractionManager : Singleton<InteractionManager>
         switch (pathCreationState)
         {
             case PathCreationState.NotCreating:
+                if (GetAvailableWorkerCount() <= 0)
+                    return "Keine Worker verfügbar";
                 return "Pfad erstellen";
             case PathCreationState.SelectingResourceField:
                 return "Ressourcenfeld wählen";
             case PathCreationState.SelectingStartVertex:
                 return "Startecke wählen";
             case PathCreationState.Creating:
-                return pathComplete ? "Pfad bestätigen" : "Pfad erstellen";
+                return "Pfad erstellen...";
             case PathCreationState.ReadyToConfirm:
-                return "Pfad bestätigen";
+                return "Pfad erstellt";
             default:
                 return "Pfad erstellen";
         }
@@ -350,7 +373,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public bool CanCreateNewPath()
     {
-        return pathCreationState == PathCreationState.NotCreating;
+        return pathCreationState == PathCreationState.NotCreating && GetAvailableWorkerCount() > 0;
     }
 
     public bool CanConfirmPath()
@@ -363,12 +386,96 @@ public class InteractionManager : Singleton<InteractionManager>
         return completedPaths.Count;
     }
 
-    // === AMBUSH BUYING SYSTEM FOR BANDIT ===
+    // === RESOURCE MANAGEMENT ===
     public void UpdateGoldAmount(int newGoldAmount)
     {
         currentGold = newGoldAmount;
         Debug.Log($"💰 Gold updated: {currentGold}");
     }
+
+    public void UpdateResources(int gold, int wood, int grain)
+    {
+        currentGold = gold;
+        currentWood = wood;
+        currentGrain = grain;
+        Debug.Log($"📊 Resources updated: Gold={currentGold}, Wood={currentWood}, Grain={currentGrain}");
+    }
+
+    // === WORKER BUYING SYSTEM FOR KING ===
+    public bool CanBuyWorker()
+    {
+        return currentGrain >= workerGrainCost && currentWood >= workerWoodCost && currentMode == InteractionMode.PathSelection;
+    }
+
+    public string GetWorkerBuyButtonText()
+    {
+        if (CanBuyWorker())
+        {
+            return $"Worker kaufen ({workerGrainCost} Getreide, {workerWoodCost} Holz)";
+        }
+        else
+        {
+            return $"Nicht genug Ressourcen ({workerGrainCost} Getreide, {workerWoodCost} Holz benötigt)";
+        }
+    }
+
+    public void BuyWorker()
+    {
+        if (!CanBuyWorker())
+        {
+            Debug.LogError($"❌ Error: Cannot buy worker! Need {workerGrainCost} grain and {workerWoodCost} wood, have {currentGrain} grain and {currentWood} wood");
+            UIManager.Instance.UpdateInfoText($"Error: Need {workerGrainCost} grain and {workerWoodCost} wood, have {currentGrain} grain and {currentWood} wood");
+            return;
+        }
+
+        // Send buy request to server
+        var payload = new { grainCost = workerGrainCost, woodCost = workerWoodCost };
+        net.Send("buy_worker", payload);
+
+        Debug.Log($"Worker purchase request sent (Cost: {workerGrainCost} grain, {workerWoodCost} wood)");
+
+        // Server will respond with worker_approved or worker_denied
+        // On approval, server will update our resources and we can place the worker
+    }
+
+    public void OnWorkerPurchaseApproved()
+    {
+        purchasedWorkers++;
+        Debug.Log($"✅ Worker purchase approved! Total workers: {purchasedWorkers}");
+        UIManager.Instance.UpdateInfoText($"Worker purchased! You now have {purchasedWorkers - usedWorkers} available workers.");
+        UIManager.Instance.UpdateWorkerText();
+    }
+
+    public void OnWorkerPurchaseDenied(string reason)
+    {
+        Debug.LogError($"❌ Worker purchase denied: {reason}");
+        UIManager.Instance.UpdateInfoText($"Error: {reason}");
+    }
+
+    public int GetPurchasedWorkerCount()
+    {
+        return purchasedWorkers;
+    }
+
+    public int GetAvailableWorkerCount()
+    {
+        return purchasedWorkers - usedWorkers;
+    }
+
+    public int GetUsedWorkerCount()
+    {
+        return usedWorkers;
+    }
+
+    public void RestorePurchasedWorkers(int workerCount)
+    {
+        purchasedWorkers = workerCount;
+        usedWorkers = 0; // Reset used workers at start of new round
+        Debug.Log($"Workers restored: {purchasedWorkers} purchased, {usedWorkers} used, {GetAvailableWorkerCount()} available");
+        UIManager.Instance.UpdateWorkerText();
+    }
+
+    // === AMBUSH BUYING SYSTEM FOR BANDIT ===
 
     public bool CanBuyAmbush()
     {
@@ -526,6 +633,10 @@ public class InteractionManager : Singleton<InteractionManager>
             pathComplete = true;
             pathCreationState = PathCreationState.ReadyToConfirm;
             Debug.Log("✅ Path completed! Ready to confirm.");
+            
+            // Update UI buttons when path is ready to confirm
+            UIManager.Instance.UpdateKingPathButtonText();
+            UIManager.Instance.UpdateKingPathConfirmButtonText();
         }
         validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v).Except(selectedVertices));
     }
@@ -1071,6 +1182,8 @@ public class InteractionManager : Singleton<InteractionManager>
         pathColorMap.Clear();
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;
+        purchasedWorkers = 0;
+        usedWorkers = 0;
 
         foreach (var orb in ambushOrbObjects)
         {

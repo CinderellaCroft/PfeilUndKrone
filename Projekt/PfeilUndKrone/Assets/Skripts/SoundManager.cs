@@ -63,7 +63,7 @@ public class SoundManager : MonoBehaviour
         
         if (isMuted)
         {
-            if (volumeSlider.value > 0)
+            if (volumeSlider != null && volumeSlider.value > 0)
             {
                 lastVolume = volumeSlider.value;
             }
@@ -71,7 +71,10 @@ public class SoundManager : MonoBehaviour
         }
         else
         {
-            volumeSlider.value = lastVolume;
+            if (volumeSlider != null)
+            {
+                volumeSlider.value = lastVolume;
+            }
             SetVolume(lastVolume);
         }
     }

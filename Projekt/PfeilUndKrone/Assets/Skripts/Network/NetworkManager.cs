@@ -174,6 +174,30 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         InteractionManager.Instance.OnAmbushPurchaseDenied("Not enough resources!");
                         break;
 
+                    case "worker_approved":
+                        Debug.Log("✅ Worker purchase approved by server!");
+                        UIManager.Instance.UpdateInfoText("Worker purchased successfully!");
+                        
+                        // Notify InteractionManager that worker purchase was approved
+                        InteractionManager.Instance.OnWorkerPurchaseApproved();
+                        
+                        // Update button states after worker purchase
+                        if (GameManager.Instance.MyRole == PlayerRole.King)
+                        {
+                            UIManager.Instance.UpdateKingWorkerBuyButtonText();
+                            UIManager.Instance.UpdateKingPathButtonText();
+                            UIManager.Instance.UpdateKingPathConfirmButtonText();
+                        }
+                        break;
+
+                    case "worker_denied":
+                        Debug.LogError("❌ Server denied worker purchase - Not enough resources!");
+                        UIManager.Instance.UpdateInfoText("Worker denied: Not enough resources!");
+
+                        // Notify InteractionManager that worker purchase was denied
+                        InteractionManager.Instance.OnWorkerPurchaseDenied("Not enough resources!");
+                        break;
+
                     case "resource_update":
                         var resourceMessage = JsonUtility.FromJson<ServerMessageResourceUpdate>(messageString);
                         UIManager.Instance.UpdateResourcesText(resourceMessage.payload.gold, resourceMessage.payload.wood, resourceMessage.payload.grain);
@@ -300,10 +324,25 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         // Update InteractionManager with new gold amount
                         InteractionManager.Instance.UpdateGoldAmount(roundPayload.resources.gold);
 
+                        // Restore purchased workers for King from server data
+                        if (GameManager.Instance.MyRole == PlayerRole.King && roundPayload.workers > 0)
+                        {
+                            InteractionManager.Instance.RestorePurchasedWorkers(roundPayload.workers);
+                            Debug.Log($"King's purchased workers restored: {roundPayload.workers}");
+                        }
+
                         // Update bandit button text if bandit player
                         if (GameManager.Instance.MyRole == PlayerRole.Bandit)
                         {
                             UIManager.Instance.UpdateBanditAmbushButtonText();
+                        }
+                        
+                        // Update king button texts if king player
+                        if (GameManager.Instance.MyRole == PlayerRole.King)
+                        {
+                            UIManager.Instance.UpdateKingWorkerBuyButtonText();
+                            UIManager.Instance.UpdateKingPathButtonText();
+                            UIManager.Instance.UpdateKingPathConfirmButtonText();
                         }
                         break;
 

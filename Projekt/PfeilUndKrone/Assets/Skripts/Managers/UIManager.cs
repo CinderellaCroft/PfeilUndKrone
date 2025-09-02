@@ -10,10 +10,13 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private TextMeshProUGUI roundNumberText;
     [SerializeField] private TextMeshProUGUI infoText;
     [SerializeField] private TextMeshProUGUI resourcesText;
+    [SerializeField] private TextMeshProUGUI workerText;
 
     [Header("Buttons")]
     [SerializeField] private Button doneButton;
     [SerializeField] private Button kingPathButton;
+    [SerializeField] private Button kingPathConfirmButton;
+    [SerializeField] private Button kingWorkerBuyButton;
     [SerializeField] private Button banditAmbushButton;
 
     [Header("End Game Panels")]
@@ -32,7 +35,7 @@ public class UIManager : Singleton<UIManager>
 
     private void ValidateReferences()
     {
-        if (roleText == null || turnStatusText == null || infoText == null || resourcesText == null || doneButton == null)
+        if (roleText == null || turnStatusText == null || infoText == null || resourcesText == null || workerText == null || doneButton == null)
         {
             Debug.LogError("---!!! CRITICAL SETUP ERROR IN UIMANAGER !!!---", this.gameObject);
             Debug.LogError("--> One or more UI element references (Text, Button) are NOT assigned in the Inspector. Please select _UIManager and assign them.", this.gameObject);
@@ -43,6 +46,8 @@ public class UIManager : Singleton<UIManager>
 
         if (roundNumberText == null) Debug.LogWarning("roundNumberText is not assigned in UIManager.", this.gameObject);
         if (kingPathButton == null) Debug.LogWarning("kingPathButton is not assigned in UIManager.", this.gameObject);
+        if (kingPathConfirmButton == null) Debug.LogWarning("kingPathConfirmButton is not assigned in UIManager.", this.gameObject);
+        if (kingWorkerBuyButton == null) Debug.LogWarning("kingWorkerBuyButton is not assigned in UIManager.", this.gameObject);
         if (banditAmbushButton == null) Debug.LogWarning("banditAmbushButton is not assigned in UIManager.", this.gameObject);
 
         // NEW: Validate end game panels
@@ -60,6 +65,8 @@ public class UIManager : Singleton<UIManager>
     {
         doneButton.onClick.AddListener(OnDoneButtonClicked);
         if (kingPathButton != null) kingPathButton.onClick.AddListener(OnKingPathButtonClicked);
+        if (kingPathConfirmButton != null) kingPathConfirmButton.onClick.AddListener(OnKingPathConfirmButtonClicked);
+        if (kingWorkerBuyButton != null) kingWorkerBuyButton.onClick.AddListener(OnKingWorkerBuyButtonClicked);
         if (banditAmbushButton != null) banditAmbushButton.onClick.AddListener(OnBanditAmbushButtonClicked);
 
         SetDoneButtonActive(false);
@@ -70,6 +77,8 @@ public class UIManager : Singleton<UIManager>
     public void UpdateRoleText(PlayerRole role)
     {
         roleText.text = $"Role: {role}";
+        // Update worker text when role changes
+        UpdateWorkerText();
     }
 
     public void UpdateTurnStatus(string status)
@@ -97,6 +106,41 @@ public class UIManager : Singleton<UIManager>
     public void UpdateResourcesText(int gold, int wood, int grain)
     {
         resourcesText.text = $"Gold: {gold} | Wood: {wood} | Grain: {grain}";
+
+        // Update InteractionManager resources
+        if (InteractionManager.Instance != null)
+        {
+            InteractionManager.Instance.UpdateResources(gold, wood, grain);
+            // Update button states when resources change
+            UpdateKingWorkerBuyButtonText();
+            UpdateBanditAmbushButtonText();
+            // Update worker text when resources change (for King)
+            UpdateWorkerText();
+        }
+    }
+
+    public void UpdateWorkerText()
+    {
+        if (workerText == null) return;
+
+        if (InteractionManager.Instance != null && GameManager.Instance != null)
+        {
+            if (GameManager.Instance.MyRole == PlayerRole.King)
+            {
+                int availableWorkers = InteractionManager.Instance.GetAvailableWorkerCount();
+                int totalWorkers = InteractionManager.Instance.GetPurchasedWorkerCount();
+                int usedWorkers = InteractionManager.Instance.GetUsedWorkerCount();
+                workerText.text = $"Workers: {availableWorkers}/{totalWorkers}";
+            }
+            else
+            {
+                workerText.text = ""; // Hide for Bandit
+            }
+        }
+        else
+        {
+            workerText.text = "Workers: 0/0";
+        }
     }
 
     public void SetDoneButtonActive(bool isActive)
@@ -112,6 +156,22 @@ public class UIManager : Singleton<UIManager>
             if (isActive)
             {
                 UpdateKingPathButtonText();
+            }
+        }
+        if (kingPathConfirmButton != null)
+        {
+            kingPathConfirmButton.gameObject.SetActive(isActive);
+            if (isActive)
+            {
+                UpdateKingPathConfirmButtonText();
+            }
+        }
+        if (kingWorkerBuyButton != null)
+        {
+            kingWorkerBuyButton.gameObject.SetActive(isActive);
+            if (isActive)
+            {
+                UpdateKingWorkerBuyButtonText();
             }
         }
     }
@@ -137,6 +197,36 @@ public class UIManager : Singleton<UIManager>
             {
                 buttonText.text = InteractionManager.Instance.GetPathCreationButtonText();
             }
+            // Only enable path button for creating new paths
+            kingPathButton.interactable = InteractionManager.Instance.CanCreateNewPath();
+        }
+    }
+
+    public void UpdateKingPathConfirmButtonText()
+    {
+        if (kingPathConfirmButton != null && InteractionManager.Instance != null)
+        {
+            var buttonText = kingPathConfirmButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "Pfad bestätigen";
+            }
+            // Only enable confirm button when path is ready to confirm
+            kingPathConfirmButton.interactable = InteractionManager.Instance.CanConfirmPath();
+        }
+    }
+
+    public void UpdateKingWorkerBuyButtonText()
+    {
+        if (kingWorkerBuyButton != null && InteractionManager.Instance != null)
+        {
+            var buttonText = kingWorkerBuyButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = InteractionManager.Instance.GetWorkerBuyButtonText();
+            }
+            // Disable button if can't buy worker
+            kingWorkerBuyButton.interactable = InteractionManager.Instance.CanBuyWorker();
         }
     }
 
@@ -157,6 +247,27 @@ public class UIManager : Singleton<UIManager>
 
     // === BUTTON CLICK HANDLERS ===
 
+    private void OnKingWorkerBuyButtonClicked()
+    {
+        Debug.Log("King Worker Buy button clicked!");
+
+        if (InteractionManager.Instance.CanBuyWorker())
+        {
+            InteractionManager.Instance.BuyWorker();
+        }
+        else
+        {
+            string errorMsg = $"Cannot buy worker - {InteractionManager.Instance.GetWorkerBuyButtonText()}";
+            Debug.LogError($"❌ Error: {errorMsg}");
+            UpdateInfoText(errorMsg);
+        }
+
+        // Update button texts after attempt
+        UpdateKingWorkerBuyButtonText();
+        UpdateKingPathButtonText(); // Also update path button as worker count changed
+        UpdateWorkerText(); // Update worker display
+    }
+
     private void OnKingPathButtonClicked()
     {
         Debug.Log("King Path button clicked!");
@@ -165,17 +276,36 @@ public class UIManager : Singleton<UIManager>
         {
             InteractionManager.Instance.StartNewPath();
         }
-        else if (InteractionManager.Instance.CanConfirmPath())
+        else
+        {
+            Debug.LogError("❌ Error: Cannot create path in current state!");
+        }
+
+        // Update button texts after state change
+        UpdateKingPathButtonText();
+        UpdateKingPathConfirmButtonText();
+        UpdateKingWorkerBuyButtonText();
+        UpdateWorkerText();
+    }
+
+    private void OnKingPathConfirmButtonClicked()
+    {
+        Debug.Log("King Path Confirm button clicked!");
+
+        if (InteractionManager.Instance.CanConfirmPath())
         {
             InteractionManager.Instance.ConfirmCurrentPath();
         }
         else
         {
-            Debug.LogError("❌ Error: Cannot create or confirm path in current state!");
+            Debug.LogError("❌ Error: Cannot confirm path in current state!");
         }
 
-        // Update button text after state change
+        // Update button texts after state change
         UpdateKingPathButtonText();
+        UpdateKingPathConfirmButtonText();
+        UpdateKingWorkerBuyButtonText();
+        UpdateWorkerText();
     }
 
     private void OnBanditAmbushButtonClicked()
@@ -275,6 +405,9 @@ public class UIManager : Singleton<UIManager>
                 SetBanditButtonsActive(false);
                 break;
         }
+
+        // Update worker text whenever turn/visibility changes
+        UpdateWorkerText();
     }
 
     public void ShowEndGamePanel(bool didIWin)
@@ -289,6 +422,7 @@ public class UIManager : Singleton<UIManager>
         roundNumberText.gameObject.SetActive(false);
         infoText.gameObject.SetActive(false);
         resourcesText.gameObject.SetActive(false);
+        workerText.gameObject.SetActive(false);
 
         // Show the appropriate panel
         if (didIWin)
