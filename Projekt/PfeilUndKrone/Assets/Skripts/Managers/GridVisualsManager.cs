@@ -57,6 +57,26 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             .ToDictionary(e => e.type, e => e.prefab);
     }
 
+    public void Bind(MainBindings b)
+    {
+        hexFieldContainer = b.hexFieldContainer;
+
+        // If these were unassigned because the singleton was created in Title,
+        // take them from the scene bindings:
+        if (KingCastlePrefab == null) KingCastlePrefab = b.KingCastlePrefab;
+        if (KingMoatPrefab == null) KingMoatPrefab = b.KingMoatPrefab;
+        if (resourcePrefabs == null || resourcePrefabs.Count == 0) resourcePrefabs = b.resourcePrefabs;
+
+        if (BanditCastlePrefab == null) BanditCastlePrefab = b.BanditCastlePrefab;
+        if (BanditMoatPrefab == null) BanditMoatPrefab = b.BanditMoatPrefab;
+        if (unknownResourcePrefabs == null || unknownResourcePrefabs.Count == 0)
+            unknownResourcePrefabs = b.unknownResourcePrefabs;
+
+        if (desertPrefab == null) desertPrefab = b.desertPrefab;
+        if (vertexMarkerPrefab == null) vertexMarkerPrefab = b.vertexMarkerPrefab;
+        if (edgeMarkerPrefab == null) edgeMarkerPrefab = b.edgeMarkerPrefab;
+    }
+
     public void InitializeVisuals(Dictionary<Hex, FieldType> map)
     {
         ClearPrevious();
@@ -65,6 +85,8 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         if (hexFieldContainer == null) { Debug.LogError("GridVisualsManager: hexFieldContainer NULL"); return; }
         if (desertPrefab == null) { Debug.LogError("GridVisualsManager: desertPrefab NULL"); return; }
         if (resourceMap == null) { Debug.LogError("GridVisualsManager: prefab map (resourceMap) NULL"); return; }
+
+        Debug.Log("GridVisualsManager: InitializeVisuals() called");
 
         float radius = gridGenerator.hexRadius;
 

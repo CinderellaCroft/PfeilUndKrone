@@ -64,7 +64,6 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     void Start()
     {
         Debug.Log("NEW ROUND HERE WE GO!!! (Client NetworkManager.cs)");
-        Connect();
     }
 
     private void OnApplicationQuit()
@@ -118,6 +117,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                 switch (typeFinder.type)
                 {
                     case "lobby_randomly_joined":
+                        Debug.Log("cl: join_random -> sv: lobby_randomly_joined");
                         var lj = JsonUtility.FromJson<ServerMessageLobbyJoinedRandomly>(messageString);
                         Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
                         UIManager.Instance.UpdateInfoText(

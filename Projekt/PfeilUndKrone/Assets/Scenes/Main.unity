@@ -1365,6 +1365,107 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!1 &1192189655
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1192189656}
+  - component: {fileID: 1192189657}
+  - component: {fileID: 1192189658}
+  m_Layer: 0
+  m_Name: _Bindings
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1192189656
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1192189655}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1192189657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1192189655}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7effd1840a7633b4da099c1a035536ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  roleText: {fileID: 1777561644}
+  turnStatusText: {fileID: 1405237375}
+  roundNumberText: {fileID: 867210973}
+  infoText: {fileID: 653193446}
+  resourcesText: {fileID: 1257991122}
+  doneButton: {fileID: 688913518}
+  kingPathButton: {fileID: 1454433296}
+  banditAmbushButton: {fileID: 558135603}
+  winnerPanel: {fileID: 231203891}
+  loserPanel: {fileID: 2000159011}
+--- !u!114 &1192189658
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1192189655}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96dbcbb76a2a6ba41a73bfdb4e5d9cf4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  roleText: {fileID: 1777561644}
+  turnStatusText: {fileID: 1405237375}
+  roundNumberText: {fileID: 867210973}
+  infoText: {fileID: 653193446}
+  resourcesText: {fileID: 1257991122}
+  doneButton: {fileID: 688913518}
+  kingPathButton: {fileID: 1454433296}
+  banditAmbushButton: {fileID: 558135603}
+  winnerPanel: {fileID: 231203891}
+  loserPanel: {fileID: 2000159011}
+  hexFieldContainer: {fileID: 751459215}
+  KingCastlePrefab: {fileID: 919132149155446097, guid: 9f1fb143cec605449b8986a865f6b057, type: 3}
+  KingMoatPrefab: {fileID: 919132149155446097, guid: 977f32f3baba86b4da5d2d904cea7af5, type: 3}
+  resourcePrefabs:
+  - type: 0
+    prefab: {fileID: 6488751737918772643, guid: eba4308856cfcf641ac4a9e6b9e35072, type: 3}
+  - type: 1
+    prefab: {fileID: 2853539227547289673, guid: 4537516af8e3358449600717fcf9d5b0, type: 3}
+  - type: 2
+    prefab: {fileID: 6690914167008999101, guid: 53fe8e6a228ce7841915d0c4354e5a22, type: 3}
+  - type: 3
+    prefab: {fileID: 919132149155446097, guid: b47ebfcc404381c4c9908318e7a9321a, type: 3}
+  BanditCastlePrefab: {fileID: 2407626995703613287, guid: b107b7c4ebba97f4683143ae50da2eac, type: 3}
+  BanditMoatPrefab: {fileID: 919132149155446097, guid: 770cbdc88a3c7094cba5b415ac903eeb, type: 3}
+  unknownResourcePrefabs:
+  - {fileID: 3750417779599394199, guid: 23ae4066aace47840859f3da0e73baf1, type: 3}
+  - {fileID: 9200304220082075631, guid: 82dfce904e708ee40b238213c7963fad, type: 3}
+  - {fileID: 521975604693143862, guid: 6d91817406d11c54fa56da3014a0df62, type: 3}
+  - {fileID: 8254921794577708035, guid: 8c5abd6f44a4f394493c6f2578beaf1a, type: 3}
+  - {fileID: 5007065612845647104, guid: 9121f7922b20f24408d368931e9dc9db, type: 3}
+  - {fileID: 1873717335276492811, guid: 82b1caf19fd2daf44bff09e220aabe01, type: 3}
+  desertPrefab: {fileID: 4272260028409055479, guid: 8632b8d5a438e6e44b3b6a9d31c0e57a, type: 3}
+  vertexMarkerPrefab: {fileID: 4584628830818376186, guid: 180a620930ade454c8bcf5c0e4f01742, type: 3}
+  edgeMarkerPrefab: {fileID: 919132149155446097, guid: 6ba63ef5d1965234781cad873ab556ee, type: 3}
 --- !u!1 &1257991120
 GameObject:
   m_ObjectHideFlags: 0
@@ -3584,3 +3685,4 @@ SceneRoots:
   - {fileID: 2076397713}
   - {fileID: 1732682194}
   - {fileID: 279190811}
+  - {fileID: 1192189656}
