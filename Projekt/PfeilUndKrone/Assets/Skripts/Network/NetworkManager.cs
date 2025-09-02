@@ -175,27 +175,46 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         break;
 
                     case "worker_approved":
-                        Debug.Log("✅ Worker purchase approved by server!");
+                        Debug.Log("Worker purchase approved by server!");
                         UIManager.Instance.UpdateInfoText("Worker purchased successfully!");
                         
-                        // Notify InteractionManager that worker purchase was approved
                         InteractionManager.Instance.OnWorkerPurchaseApproved();
                         
-                        // Update button states after worker purchase
                         if (GameManager.Instance.MyRole == PlayerRole.King)
                         {
                             UIManager.Instance.UpdateKingWorkerBuyButtonText();
                             UIManager.Instance.UpdateKingPathButtonText();
                             UIManager.Instance.UpdateKingPathConfirmButtonText();
+                            UIManager.Instance.UpdateKingWagonUpgradeButtonText();
                         }
                         break;
 
                     case "worker_denied":
-                        Debug.LogError("❌ Server denied worker purchase - Not enough resources!");
+                        Debug.LogError("Server denied worker purchase - Not enough resources!");
                         UIManager.Instance.UpdateInfoText("Worker denied: Not enough resources!");
 
-                        // Notify InteractionManager that worker purchase was denied
                         InteractionManager.Instance.OnWorkerPurchaseDenied("Not enough resources!");
+                        break;
+
+                    case "wagon_upgrade_approved":
+                        Debug.Log("Wagon upgrade approved by server!");
+                        UIManager.Instance.UpdateInfoText("Worker upgraded to wagon successfully!");
+                        
+                        var wagonApprovedMsg = JsonUtility.FromJson<ServerMessageWagonUpgradeApproved>(messageString);
+                        InteractionManager.Instance.OnWagonUpgradeApproved(wagonApprovedMsg.payload.wagonWorkers, wagonApprovedMsg.payload.workerCount);
+                        
+                        if (GameManager.Instance.MyRole == PlayerRole.King)
+                        {
+                            UIManager.Instance.UpdateKingWagonUpgradeButtonText();
+                            UIManager.Instance.UpdateKingWagonPathButtonText();
+                        }
+                        break;
+
+                    case "wagon_upgrade_denied":
+                        Debug.LogError("Server denied wagon upgrade!");
+                        var wagonDeniedMsg = JsonUtility.FromJson<ServerMessageWagonUpgradeDenied>(messageString);
+                        UIManager.Instance.UpdateInfoText($"Wagon upgrade denied: {wagonDeniedMsg.payload.reason}");
+                        InteractionManager.Instance.OnWagonUpgradeDenied(wagonDeniedMsg.payload.reason);
                         break;
 
                     case "resource_update":
@@ -215,13 +234,23 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                     case "execute_round":
                         var execMsg = JsonUtility.FromJson<ServerMessageExecuteRound>(messageString).payload;
 
+                        if (execMsg.workersLost > 0 && GameManager.Instance.MyRole == PlayerRole.King)
+                        {
+                            Debug.Log($"Server reports {execMsg.workersLost} workers lost to ambushes");
+                            if (InteractionManager.Instance != null)
+                            {
+                                InteractionManager.Instance.SetWorkerCountsFromServer(execMsg.kingWorkerCount, execMsg.kingWagonWorkerCount);
+                                string message = $"{execMsg.workersLost} worker(s) lost to ambush! {execMsg.kingWorkerCount} workers remaining ({execMsg.kingWagonWorkerCount} wagons).";
+                                UIManager.Instance.UpdateInfoText(message);
+                            }
+                        }
 
                         var r = (GameManager.Instance.MyRole.ToString() == "King")
                                 ? execMsg.kingBonus
                                 : execMsg.banditBonus;
 
                         UIManager.Instance.UpdateResourcesText(r.gold, r.wood, r.grain);
-                        Debug.Log($"Updated resources: 💰{r.gold}, 🪵{r.wood}, 🌾{r.grain}");
+                        Debug.Log($"Updated resources: Gold {r.gold}, Wood {r.wood}, Grain {r.grain}");
 
 
 
@@ -327,8 +356,8 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         // Restore purchased workers for King from server data
                         if (GameManager.Instance.MyRole == PlayerRole.King && roundPayload.workers > 0)
                         {
-                            InteractionManager.Instance.RestorePurchasedWorkers(roundPayload.workers);
-                            Debug.Log($"King's purchased workers restored: {roundPayload.workers}");
+                            InteractionManager.Instance.RestorePurchasedWorkers(roundPayload.workers, roundPayload.wagonWorkers);
+                            Debug.Log($"King's workers restored: {roundPayload.workers} total ({roundPayload.wagonWorkers} wagons)");
                         }
 
                         // Update bandit button text if bandit player

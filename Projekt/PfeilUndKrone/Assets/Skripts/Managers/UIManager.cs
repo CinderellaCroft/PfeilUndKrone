@@ -17,6 +17,8 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private Button kingPathButton;
     [SerializeField] private Button kingPathConfirmButton;
     [SerializeField] private Button kingWorkerBuyButton;
+    [SerializeField] private Button kingWagonUpgradeButton;
+    [SerializeField] private Button kingWagonPathButton;
     [SerializeField] private Button banditAmbushButton;
 
     [Header("End Game Panels")]
@@ -67,6 +69,8 @@ public class UIManager : Singleton<UIManager>
         if (kingPathButton != null) kingPathButton.onClick.AddListener(OnKingPathButtonClicked);
         if (kingPathConfirmButton != null) kingPathConfirmButton.onClick.AddListener(OnKingPathConfirmButtonClicked);
         if (kingWorkerBuyButton != null) kingWorkerBuyButton.onClick.AddListener(OnKingWorkerBuyButtonClicked);
+        if (kingWagonUpgradeButton != null) kingWagonUpgradeButton.onClick.AddListener(OnKingWagonUpgradeButtonClicked);
+        if (kingWagonPathButton != null) kingWagonPathButton.onClick.AddListener(OnKingWagonPathButtonClicked);
         if (banditAmbushButton != null) banditAmbushButton.onClick.AddListener(OnBanditAmbushButtonClicked);
 
         SetDoneButtonActive(false);
@@ -128,13 +132,18 @@ public class UIManager : Singleton<UIManager>
             if (GameManager.Instance.MyRole == PlayerRole.King)
             {
                 int availableWorkers = InteractionManager.Instance.GetAvailableWorkerCount();
-                int totalWorkers = InteractionManager.Instance.GetPurchasedWorkerCount();
-                int usedWorkers = InteractionManager.Instance.GetUsedWorkerCount();
-                workerText.text = $"Workers: {availableWorkers}/{totalWorkers}";
+                int ownedWorkers = InteractionManager.Instance.GetPurchasedWorkerCount();
+                int availableWagonWorkers = InteractionManager.Instance.GetAvailableWagonWorkerCount();
+                int availableRegularWorkers = InteractionManager.Instance.GetAvailableRegularWorkerCount();
+                
+                int totalRegularWorkers = InteractionManager.Instance.GetTotalOwnedRegularWorkers();
+                int totalWagonWorkers = InteractionManager.Instance.GetTotalOwnedWagonWorkers();
+                
+                workerText.text = $"Workers {availableRegularWorkers}/{totalRegularWorkers}\nWagon Workers {availableWagonWorkers}/{totalWagonWorkers}";
             }
             else
             {
-                workerText.text = ""; // Hide for Bandit
+                workerText.text = "";
             }
         }
         else
@@ -172,6 +181,22 @@ public class UIManager : Singleton<UIManager>
             if (isActive)
             {
                 UpdateKingWorkerBuyButtonText();
+            }
+        }
+        if (kingWagonUpgradeButton != null)
+        {
+            kingWagonUpgradeButton.gameObject.SetActive(isActive);
+            if (isActive)
+            {
+                UpdateKingWagonUpgradeButtonText();
+            }
+        }
+        if (kingWagonPathButton != null)
+        {
+            kingWagonPathButton.gameObject.SetActive(isActive);
+            if (isActive)
+            {
+                UpdateKingWagonPathButtonText();
             }
         }
     }
@@ -225,8 +250,35 @@ public class UIManager : Singleton<UIManager>
             {
                 buttonText.text = InteractionManager.Instance.GetWorkerBuyButtonText();
             }
-            // Disable button if can't buy worker
             kingWorkerBuyButton.interactable = InteractionManager.Instance.CanBuyWorker();
+        }
+    }
+
+    public void UpdateKingWagonUpgradeButtonText()
+    {
+        if (kingWagonUpgradeButton != null && InteractionManager.Instance != null)
+        {
+            var buttonText = kingWagonUpgradeButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                int availableWorkers = InteractionManager.Instance.GetAvailableRegularWorkerCount();
+                buttonText.text = $"Upgrade Worker (50 wood)\nWorkers: {availableWorkers}";
+            }
+            kingWagonUpgradeButton.interactable = InteractionManager.Instance.CanUpgradeWorkerToWagon();
+        }
+    }
+
+    public void UpdateKingWagonPathButtonText()
+    {
+        if (kingWagonPathButton != null && InteractionManager.Instance != null)
+        {
+            var buttonText = kingWagonPathButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                int availableWagonWorkers = InteractionManager.Instance.GetAvailableWagonWorkerCount();
+                buttonText.text = $"Wagon Path\nAvailable: {availableWagonWorkers}";
+            }
+            kingWagonPathButton.interactable = InteractionManager.Instance.GetAvailableWagonWorkerCount() > 0;
         }
     }
 
@@ -258,14 +310,54 @@ public class UIManager : Singleton<UIManager>
         else
         {
             string errorMsg = $"Cannot buy worker - {InteractionManager.Instance.GetWorkerBuyButtonText()}";
-            Debug.LogError($"❌ Error: {errorMsg}");
+            Debug.LogError($"Error: {errorMsg}");
             UpdateInfoText(errorMsg);
         }
 
-        // Update button texts after attempt
         UpdateKingWorkerBuyButtonText();
-        UpdateKingPathButtonText(); // Also update path button as worker count changed
-        UpdateWorkerText(); // Update worker display
+        UpdateKingPathButtonText();
+        UpdateKingWagonUpgradeButtonText();
+        UpdateWorkerText();
+    }
+
+    private void OnKingWagonUpgradeButtonClicked()
+    {
+        Debug.Log("King Wagon Upgrade button clicked!");
+
+        if (InteractionManager.Instance.CanUpgradeWorkerToWagon())
+        {
+            InteractionManager.Instance.UpgradeWorkerToWagon();
+        }
+        else
+        {
+            string errorMsg = "Cannot upgrade worker to wagon - insufficient wood or no available workers";
+            Debug.LogError($"Error: {errorMsg}");
+            UpdateInfoText(errorMsg);
+        }
+
+        UpdateKingWagonUpgradeButtonText();
+        UpdateKingWagonPathButtonText();
+        UpdateWorkerText();
+    }
+
+    private void OnKingWagonPathButtonClicked()
+    {
+        Debug.Log("King Wagon Path button clicked!");
+
+        if (InteractionManager.Instance.GetAvailableWagonWorkerCount() > 0)
+        {
+            InteractionManager.Instance.StartNewWagonWorkerPath();
+            UpdateInfoText("Creating wagon worker path - select a resource field");
+        }
+        else
+        {
+            string errorMsg = "Cannot create wagon worker path - no wagon workers available";
+            Debug.LogError($"Error: {errorMsg}");
+            UpdateInfoText(errorMsg);
+        }
+
+        UpdateKingWagonPathButtonText();
+        UpdateKingPathConfirmButtonText();
     }
 
     private void OnKingPathButtonClicked()
@@ -319,7 +411,7 @@ public class UIManager : Singleton<UIManager>
         else
         {
             string errorMsg = $"Cannot buy ambush - need {InteractionManager.Instance.GetAmbushBuyButtonText()}";
-            Debug.LogError($"❌ Error: {errorMsg}");
+            Debug.LogError($"Error: {errorMsg}");
             UpdateInfoText(errorMsg);
         }
 

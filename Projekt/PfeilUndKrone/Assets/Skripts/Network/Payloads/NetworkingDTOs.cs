@@ -95,7 +95,8 @@ namespace NetworkingDTOs
     {
         public int roundNumber;
         public ResourcePayload resources;
-        public int workers; // For King's purchased workers
+        public int workers;
+        public int wagonWorkers;
     }
 
     [Serializable]
@@ -136,6 +137,11 @@ namespace NetworkingDTOs
         public ResourcePayload kingBonus;
 
         public List<HexEdge> outcome; //wird nicht mehr verwendet??
+        
+        public int workersLost;
+        public int[] lostWorkerPaths;
+        public int kingWorkerCount;
+        public int kingWagonWorkerCount;
     }
 
     [Serializable]
@@ -215,6 +221,7 @@ namespace NetworkingDTOs
         public int resourceFieldQ;
         public int resourceFieldR;
         public string resourceType;
+        public bool isWagonWorker;
     }
 
     [Serializable]
@@ -265,6 +272,39 @@ namespace NetworkingDTOs
     {
         public int grainCost;
         public int woodCost;
+    }
+
+    [Serializable]
+    public class UpgradeWorkerWagonPayload
+    {
+        public int woodCost;
+    }
+
+    [Serializable]
+    public class WagonUpgradeApprovedPayload
+    {
+        public int wagonWorkers;
+        public int workerCount;
+    }
+
+    [Serializable]
+    public class WagonUpgradeDeniedPayload
+    {
+        public string reason;
+    }
+
+    [Serializable]
+    public class ServerMessageWagonUpgradeApproved
+    {
+        public string type;
+        public WagonUpgradeApprovedPayload payload;
+    }
+
+    [Serializable]
+    public class ServerMessageWagonUpgradeDenied
+    {
+        public string type;
+        public WagonUpgradeDeniedPayload payload;
     }
 
     [Serializable]

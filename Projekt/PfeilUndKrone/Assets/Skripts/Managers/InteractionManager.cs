@@ -34,7 +34,9 @@ public class InteractionManager : Singleton<InteractionManager>
     // Multiple paths system for King
     private List<List<HexVertex>> completedPaths = new(); // All completed paths
     private List<Hex> completedPathResourceFields = new(); // Resource fields for each completed path
-    private Dictionary<int, Color> pathColorMap = new(); // Color for each path
+    private List<bool> completedPathIsWagonWorker = new();
+    private Dictionary<int, Color> pathColorMap = new();
+    private bool currentPathUseWagonWorker = false;
     private PathCreationState pathCreationState = PathCreationState.NotCreating;
     private int currentPathIndex = -1;
 
@@ -69,8 +71,11 @@ public class InteractionManager : Singleton<InteractionManager>
     private int currentWood = 0; // Will be updated from server
     private const int workerGrainCost = 30;
     private const int workerWoodCost = 10;
-    private int purchasedWorkers = 0; // How many workers king has purchased
-    private int usedWorkers = 0; // How many workers king has used
+    private const int wagonWoodCost = 50;
+    private int ownedWorkers = 0;
+    private int usedWorkers = 0;
+    private int ownedWagonWorkers = 0;
+    private int usedWagonWorkers = 0;
 
     // Vertex highlighting system
     private HashSet<HexVertex> highlightedVertices = new();
@@ -110,14 +115,14 @@ public class InteractionManager : Singleton<InteractionManager>
         // Move all active workers
         for (int i = 0; i < workerObjects.Count; i++)
         {
-            if (i < workerMovingStates.Count && workerMovingStates[i])
+            if (i < workerMovingStates.Count && workerMovingStates[i] && workerObjects[i] != null)
             {
                 MoveWorker(i);
             }
         }
 
         // Legacy single worker support
-        if (isMoving) MoveWorkerLegacy();
+        if (isMoving && workerObj != null) MoveWorkerLegacy();
 
         if (currentMode == InteractionMode.AmbushPlacement) DrawAmbushLines();
     }
@@ -289,8 +294,40 @@ public class InteractionManager : Singleton<InteractionManager>
         availableStartVertices.Clear();
         selectedResourceField = default;
         pathComplete = false;
+        currentPathUseWagonWorker = false;
 
-        Debug.Log($"✅ Started creating path #{currentPathIndex + 1} - First select a resource field (Available workers: {GetAvailableWorkerCount()})");
+        Debug.Log($"Started creating path #{currentPathIndex + 1} - First select a resource field (Available workers: {GetAvailableWorkerCount()})");
+    }
+
+    public void StartNewWagonWorkerPath()
+    {
+        if (currentMode != InteractionMode.PathSelection) return;
+
+        if (pathCreationState == PathCreationState.Creating || pathCreationState == PathCreationState.SelectingResourceField || pathCreationState == PathCreationState.SelectingStartVertex)
+        {
+            Debug.LogError("❌ Error: Already creating a path! Confirm current path first.");
+            return;
+        }
+
+        // Check if King has available wagon workers
+        if (GetAvailableWagonWorkerCount() <= 0)
+        {
+            Debug.LogError("❌ Error: No wagon workers available! Upgrade a worker first.");
+            UIManager.Instance.UpdateInfoText("Error: No wagon workers available! Upgrade a worker first.");
+            return;
+        }
+
+        pathCreationState = PathCreationState.SelectingResourceField;
+        currentPathIndex = completedPaths.Count;
+
+        selectedVertices.Clear();
+        validNextVertices.Clear();
+        availableStartVertices.Clear();
+        selectedResourceField = default;
+        pathComplete = false;
+        currentPathUseWagonWorker = true;
+
+        Debug.Log($"Started creating wagon worker path #{currentPathIndex + 1} - First select a resource field (Available wagon workers: {GetAvailableWagonWorkerCount()})");
     }
 
     public void ConfirmCurrentPath()
@@ -307,12 +344,15 @@ public class InteractionManager : Singleton<InteractionManager>
             return;
         }
 
-        // Use up one worker
         usedWorkers++;
+        if (currentPathUseWagonWorker) {
+            usedWagonWorkers++;
+        }
 
         var pathList = selectedVertices.ToList();
         completedPaths.Add(pathList);
         completedPathResourceFields.Add(selectedResourceField);
+        completedPathIsWagonWorker.Add(currentPathUseWagonWorker);
 
         Color pathColor = pathColors[currentPathIndex % pathColors.Length];
         pathColorMap[currentPathIndex] = pathColor;
@@ -325,9 +365,10 @@ public class InteractionManager : Singleton<InteractionManager>
         availableStartVertices.Clear();
         selectedResourceField = default;
         pathComplete = false;
+        currentPathUseWagonWorker = false;
 
         var resourceField = completedPathResourceFields[currentPathIndex];
-        Debug.Log($"✅ Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices starting from resource field ({resourceField.Q},{resourceField.R}) - Workers available: {GetAvailableWorkerCount()}");
+        Debug.Log($"Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices starting from resource field ({resourceField.Q},{resourceField.R}) - Workers available: {GetAvailableWorkerCount()}");
         UIManager.Instance.UpdateInfoText($"Path confirmed! Workers available: {GetAvailableWorkerCount()}");
         UIManager.Instance.UpdateWorkerText();
         currentPathIndex = -1;
@@ -374,6 +415,20 @@ public class InteractionManager : Singleton<InteractionManager>
     public bool CanCreateNewPath()
     {
         return pathCreationState == PathCreationState.NotCreating && GetAvailableWorkerCount() > 0;
+    }
+
+    public bool CanCreateNewPath(bool useWagonWorker)
+    {
+        if (pathCreationState != PathCreationState.NotCreating) return false;
+        
+        if (useWagonWorker)
+        {
+            return GetAvailableWagonWorkerCount() > 0;
+        }
+        else
+        {
+            return GetAvailableRegularWorkerCount() > 0;
+        }
     }
 
     public bool CanConfirmPath()
@@ -440,26 +495,62 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void OnWorkerPurchaseApproved()
     {
-        purchasedWorkers++;
-        Debug.Log($"✅ Worker purchase approved! Total workers: {purchasedWorkers}");
-        UIManager.Instance.UpdateInfoText($"Worker purchased! You now have {purchasedWorkers - usedWorkers} available workers.");
+        ownedWorkers++;
+        Debug.Log($"Worker purchase approved! Total workers: {ownedWorkers}");
+        UIManager.Instance.UpdateInfoText($"Worker purchased! You now have {ownedWorkers - usedWorkers} available workers.");
         UIManager.Instance.UpdateWorkerText();
     }
 
     public void OnWorkerPurchaseDenied(string reason)
     {
-        Debug.LogError($"❌ Worker purchase denied: {reason}");
+        Debug.LogError($"Worker purchase denied: {reason}");
+        UIManager.Instance.UpdateInfoText($"Error: {reason}");
+    }
+
+    // Wagon Worker Management
+    public bool CanUpgradeWorkerToWagon()
+    {
+        return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0;
+    }
+
+    public void UpgradeWorkerToWagon()
+    {
+        if (!CanUpgradeWorkerToWagon())
+        {
+            Debug.LogError("Cannot upgrade worker to wagon - insufficient resources or no available workers");
+            return;
+        }
+
+        var payload = new { woodCost = wagonWoodCost };
+        net.Send("upgrade_worker_wagon", payload);
+
+        Debug.Log($"Wagon upgrade request sent (Cost: {wagonWoodCost} wood)");
+        // Server will respond with wagon_upgrade_approved or wagon_upgrade_denied
+    }
+
+    public void OnWagonUpgradeApproved(int wagonWorkers, int totalWorkers)
+    {
+        ownedWorkers = totalWorkers;
+        ownedWagonWorkers = wagonWorkers;
+        Debug.Log($"Wagon upgrade approved! Wagon workers: {ownedWagonWorkers}/{ownedWorkers}");
+        UIManager.Instance.UpdateInfoText($"Worker upgraded to wagon! You now have {ownedWagonWorkers} wagon workers.");
+        UIManager.Instance.UpdateWorkerText();
+    }
+
+    public void OnWagonUpgradeDenied(string reason)
+    {
+        Debug.LogError($"Wagon upgrade denied: {reason}");
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
     public int GetPurchasedWorkerCount()
     {
-        return purchasedWorkers;
+        return ownedWorkers;
     }
 
     public int GetAvailableWorkerCount()
     {
-        return purchasedWorkers - usedWorkers;
+        return ownedWorkers - usedWorkers;
     }
 
     public int GetUsedWorkerCount()
@@ -467,12 +558,59 @@ public class InteractionManager : Singleton<InteractionManager>
         return usedWorkers;
     }
 
-    public void RestorePurchasedWorkers(int workerCount)
+    public void OnWorkerLostToAmbush()
     {
-        purchasedWorkers = workerCount;
-        usedWorkers = 0; // Reset used workers at start of new round
-        Debug.Log($"Workers restored: {purchasedWorkers} purchased, {usedWorkers} used, {GetAvailableWorkerCount()} available");
+        ownedWorkers--;
+        if (ownedWorkers < 0) ownedWorkers = 0; // Safety check
+        Debug.Log($"Worker lost to ambush! Remaining workers: {ownedWorkers}");
         UIManager.Instance.UpdateWorkerText();
+    }
+
+    public void SetWorkerCountFromServer(int serverWorkerCount)
+    {
+        ownedWorkers = serverWorkerCount;
+        Debug.Log($"Worker count synced from server: {ownedWorkers}");
+        UIManager.Instance.UpdateWorkerText();
+    }
+
+    public void SetWorkerCountsFromServer(int serverWorkerCount, int serverWagonWorkerCount)
+    {
+        ownedWorkers = serverWorkerCount;
+        ownedWagonWorkers = serverWagonWorkerCount;
+        Debug.Log($"Worker counts synced from server: {ownedWorkers} total ({ownedWagonWorkers} wagons)");
+        UIManager.Instance.UpdateWorkerText();
+        UIManager.Instance.UpdateKingWagonUpgradeButtonText();
+        UIManager.Instance.UpdateKingWagonPathButtonText();
+    }
+
+    public void RestorePurchasedWorkers(int workerCount, int wagonWorkers = 0)
+    {
+        ownedWorkers = workerCount;
+        ownedWagonWorkers = wagonWorkers;
+        usedWorkers = 0;
+        usedWagonWorkers = 0;
+        Debug.Log($"Workers restored: {ownedWorkers} owned ({ownedWagonWorkers} wagons), {usedWorkers} used, {GetAvailableWorkerCount()} available");
+        UIManager.Instance.UpdateWorkerText();
+    }
+
+    public int GetAvailableWagonWorkerCount()
+    {
+        return ownedWagonWorkers - usedWagonWorkers;
+    }
+
+    public int GetAvailableRegularWorkerCount()
+    {
+        return (ownedWorkers - ownedWagonWorkers) - (usedWorkers - usedWagonWorkers);
+    }
+
+    public int GetTotalOwnedWagonWorkers()
+    {
+        return ownedWagonWorkers;
+    }
+
+    public int GetTotalOwnedRegularWorkers()
+    {
+        return ownedWorkers - ownedWagonWorkers;
     }
 
     // === AMBUSH BUYING SYSTEM FOR BANDIT ===
@@ -668,13 +806,14 @@ public class InteractionManager : Singleton<InteractionManager>
                 path = path.Select(v => new SerializableHexVertex(v)).ToArray(),
                 resourceFieldQ = resourceField.Q,
                 resourceFieldR = resourceField.R,
-                resourceType = resourceType
+                resourceType = resourceType,
+                isWagonWorker = completedPathIsWagonWorker[index]
             };
         }).ToArray();
 
         var pathData = new PlaceWorkersPayload { paths = serializablePaths };
 
-        Debug.Log($"✅ Sending {completedPaths.Count} paths to server");
+        Debug.Log($"Sending {completedPaths.Count} paths to server");
         net.Send("place_workers", pathData);
         DisableInteraction();
 
@@ -690,6 +829,12 @@ public class InteractionManager : Singleton<InteractionManager>
         for (int i = 0; i < serverPathWorld.Count; i++)
         {
             serverPathWorld[i] = new Vector3(serverPathWorld[i].x, serverPathWorld[i].y + 0.35f, serverPathWorld[i].z);
+        }
+
+        // Recreate worker if it was destroyed by ambush
+        if (workerObj == null)
+        {
+            workerObj = Instantiate(workerPrefab);
         }
 
         workerObj.transform.position = serverPathWorld[0];
@@ -715,12 +860,13 @@ public class InteractionManager : Singleton<InteractionManager>
         CheckCollisionWithOrbs(curr);
         int orbCountAfter = animationAmbushOrbObjects.Count;
 
-        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker deaktivieren
+        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker komplett zerstören
         if (orbCountAfter < orbCountBefore)
         {
             isMoving = false;
-            workerObj.SetActive(false);
-            Debug.Log("Legacy-Worker wurde durch Ambush zerstört");
+            Destroy(workerObj);
+            workerObj = null;
+            Debug.Log("🪦 Legacy worker destroyed by ambush!");
             return;
         }
 
@@ -742,6 +888,7 @@ public class InteractionManager : Singleton<InteractionManager>
     void MoveWorker(int workerIndex)
     {
         if (workerIndex >= workerObjects.Count || workerIndex >= allServerPathsWorld.Count) return;
+        if (workerObjects[workerIndex] == null) return; // Worker was destroyed by ambush
         if (workerPathSteps[workerIndex] >= allServerPathsWorld[workerIndex].Count)
         {
             workerMovingStates[workerIndex] = false;
@@ -758,12 +905,17 @@ public class InteractionManager : Singleton<InteractionManager>
         CheckCollisionWithOrbs(curr);
         int orbCountAfter = animationAmbushOrbObjects.Count;
 
-        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker deaktivieren
+        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker komplett entfernen
         if (orbCountAfter < orbCountBefore)
         {
             workerMovingStates[workerIndex] = false;
-            workerObj.SetActive(false);
-            Debug.Log($"Worker {workerIndex} wurde durch Ambush zerstört");
+            Destroy(workerObj);
+            Debug.Log($"🪦 Worker {workerIndex} destroyed by ambush!");
+            
+            // Mark this worker slot as destroyed (keep the index but null the object)
+            // This prevents index shifting issues during the Update loop
+            workerObjects[workerIndex] = null;
+            
             return;
         }
 
@@ -833,22 +985,22 @@ public class InteractionManager : Singleton<InteractionManager>
                 float distance = Vector3.Distance(workerPosition, animationAmbushOrbObjects[i].transform.position);
                 if (distance < 0.1f)
                 {
-                    Debug.Log($"❌ AMBUSH COLLISION DETECTED! ({GameManager.Instance?.MyRole})");
+                    Debug.Log($"❌ AMBUSH COLLISION DETECTED! Worker caught in ambush! ({GameManager.Instance?.MyRole})");
                     Destroy(animationAmbushOrbObjects[i]);
                     animationAmbushOrbObjects.RemoveAt(i);
 
-                    // Dann den Worker des Königs stoppen und deaktivieren
-                    // Bei der Legacy-Version (einzelner Worker)
+                    // Legacy worker system - destroy the worker completely
                     if (isMoving && workerObj != null)
                     {
                         isMoving = false;
-                        workerObj.SetActive(false);
-                        Debug.Log("König-Worker wurde durch Ambush zerstört (Legacy)");
-                        return; // Sofort zurückkehren, da der Worker deaktiviert wurde
+                        Destroy(workerObj);
+                        workerObj = null;
+                        Debug.Log("🪦 Legacy worker destroyed by ambush!");
+                        return;
                     }
 
-                    // Für Multi-Worker System - wir müssen den richtigen Worker finden und deaktivieren
-                    // Das wird in MoveWorker behandelt, da wir hier den Index nicht haben
+                    // Multi-worker system collision handling is done in MoveWorker method
+                    return;
                 }
             }
         }
@@ -1179,11 +1331,15 @@ public class InteractionManager : Singleton<InteractionManager>
         currentPathIndex = -1;
         completedPaths.Clear();
         completedPathResourceFields.Clear();
+        completedPathIsWagonWorker.Clear();
         pathColorMap.Clear();
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;
-        purchasedWorkers = 0;
+        ownedWorkers = 0;
         usedWorkers = 0;
+        ownedWagonWorkers = 0;
+        usedWagonWorkers = 0;
+        currentPathUseWagonWorker = false;
 
         foreach (var orb in ambushOrbObjects)
         {
