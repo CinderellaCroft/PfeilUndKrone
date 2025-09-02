@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using NetworkingDTOs;
 using UnityEngine;
+using System.Threading.Tasks;
+using UnityEngine.SceneManagement;
 
 public enum PlayerRole { None, King, Bandit }
 public enum GameTurn { Setup, KingPlanning, BanditPlanning, Executing }
@@ -24,12 +26,22 @@ public class GameManager : Singleton<GameManager>
     public PlayerRole MyRole { get; private set; } = PlayerRole.None;
     public GameTurn CurrentTurn { get; private set; } = GameTurn.Setup;
 
+    private bool subscribed = false;
+
     void OnEnable()
     {
-        networkService.OnRoleAssigned += SetRole;
-        networkService.OnGridDataReady += OnGridReady;
-        networkService.OnResourceMapReceived += OnResourceMap;
+        if (!subscribed)
+        {
+            networkService.OnRoleAssigned += SetRole;
+            networkService.OnGridDataReady += OnGridReady;
+            networkService.OnResourceMapReceived += OnResourceMap;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            this.networkService.Connect();
+        }
+
     }
+
+
     void OnDisable()
     {
         networkService.OnRoleAssigned -= SetRole;
@@ -37,8 +49,17 @@ public class GameManager : Singleton<GameManager>
         networkService.OnResourceMapReceived -= OnResourceMap;
     }
 
-    public void EndGame()
+    void OnSceneLoaded(Scene s, LoadSceneMode x)
     {
+        if (s.name == "Main")
+            _ = networkService.Connect();
+    }
+
+    public async void EndGame()
+    {
+        _ = this.networkService.Disconnect();
+        // await Task.Delay(500);
+        // _ = this.networkService.Connect();
         IsGameOver = true;
     }
 
@@ -151,7 +172,7 @@ public class GameManager : Singleton<GameManager>
     {
         interactionManager.ExecuteServerPaths(paths);
     }
-    
+
     public Dictionary<Hex, FieldType> GetResourceMap()
     {
         return resourceMap;

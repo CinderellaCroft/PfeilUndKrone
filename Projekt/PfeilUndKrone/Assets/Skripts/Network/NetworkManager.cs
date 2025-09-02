@@ -5,42 +5,105 @@ using System;
 using System.Linq;
 using PimDeWitte.UnityMainThreadDispatcher;
 using NetworkingDTOs;
+using System.Threading.Tasks;
 
 public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
+
+    private int PORT = 8080;
+    private String IP = "localhost";//   "localhost"     "172.104.147.34"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
-    async void Start()
+    private bool socketSetup = false;
+    public override bool IsConnected
     {
-        // Connect to the port specified in your server.js (8080)
-        websocket = new WebSocket("ws://localhost:8080");
-
-        websocket.OnOpen += () =>
+        get
         {
-            Debug.Log("✅ Connection to server opened!");
-            //erstmal nur join_random verwenden, später auch create_lobby und join_lobby
-            Send("join_random", new object());  // -> response: lobby_randomly_joined
+            return websocket != null && websocket.State == WebSocketState.Open;
+        }
+    }
 
 
-            //Send("create_lobby", new object());  // -> lobby_created
+    public override async Task Connect()
+    {
+        Debug.Log("NM Connect() called");
+        if (this.websocket == null)
+        {
+            Debug.Log("NM Connect(): websocket is null!");
+            this.websocket = new WebSocket($"ws://{IP}:{PORT}");
+        }
+        if (!this.socketSetup)
+        {
+            Debug.Log("NM Connect(): SetupWebsocket()");
+            SetupWebsocket();
+        }
+        if (this.websocket.State != WebSocketState.Open && this.websocket.State != WebSocketState.Connecting)
+        {
+            Debug.Log("NM Connect() -> await Connect()");
+            await this.websocket.Connect();
+        }
+    }
 
-            // var payload = new { lobby_id = "priv-1753375008725-882" }; // Replace with actual lobby ID
-            // Send("join_lobbyById", payload);
-        };
 
-        websocket.OnError += (e) =>
+
+    public override async Task Disconnect()
+    {
+
+        Debug.Log("NM Disconnect() called");
+        if (this.websocket != null && this.websocket.State == WebSocketState.Open)
+        {
+            Debug.Log("NM Disconnect() await");
+            this.socketSetup = false;
+            await this.websocket.Close();
+        }
+    }
+
+
+
+    void Start()
+    {
+        Debug.Log("NEW ROUND HERE WE GO!!! (Client NetworkManager.cs)");
+    }
+
+    private void OnApplicationQuit()
+    {
+        Disconnect();
+    }
+
+    void Update()
+    {
+        // The NativeWebSocket library requires this to be called each frame
+        // to process message queues on the main thread.
+#if !UNITY_WEBGL || UNITY_EDITOR
+        if (this.websocket != null)
+        {
+            this.websocket.DispatchMessageQueue();
+        }
+#endif
+    }
+
+    public void SetupWebsocket()
+    {
+        this.socketSetup = true;
+        Debug.Log("SetupWebsocket called()!!!!");
+        if (this.websocket == null)
+        {
+            this.websocket = new WebSocket($"ws://{IP}:{PORT}");
+        }
+
+        this.websocket.OnError += (e) =>
         {
             Debug.LogError("❌ Connection Error: " + e);
         };
 
-        websocket.OnClose += (e) =>
+        this.websocket.OnClose += (e) =>
         {
             Debug.Log("❌ Connection closed: " + e);
         };
 
         // This is where we handle messages from the server
-        websocket.OnMessage += (bytes) =>
+        this.websocket.OnMessage += (bytes) =>
         {
             var messageString = System.Text.Encoding.UTF8.GetString(bytes);
 
@@ -54,6 +117,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                 switch (typeFinder.type)
                 {
                     case "lobby_randomly_joined":
+                        Debug.Log("cl: join_random -> sv: lobby_randomly_joined");
                         var lj = JsonUtility.FromJson<ServerMessageLobbyJoinedRandomly>(messageString);
                         Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
                         UIManager.Instance.UpdateInfoText(
@@ -86,6 +150,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         break;
 
                     case "grid_data":
+                        Debug.Log("NM RaiseGridDataReady()");
                         RaiseGridDataReady();
                         break;
 
@@ -114,41 +179,6 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                             RaiseResourceMapReceived(list);
                             break;
                         }
-
-
-
-                    // case "resource_map":
-                    //     {
-                    //         Debug.Log("resource_map received (raw): " + messageString);
-                    //         var resMsg = JsonUtility.FromJson<ServerMessageResourceMap>(messageString);
-
-                    //         if (resMsg == null || resMsg.payload == null || resMsg.payload.map == null)
-                    //         {
-                    //             Debug.LogError("resource_map: deserialization failed or payload.map is null");
-                    //             break;
-                    //         }
-
-                    //         var list = resMsg.payload.map;
-                    //         Debug.Log($"resource_map parsed: {list.Count} entries");
-
-                    //         // log each resource
-                    //         foreach (var rd in list)
-                    //         {
-                    //             Debug.Log($"Hex({rd.q},{rd.r}) -> {rd.resource}");
-                    //         }
-
-                    //         // summary counts by type
-                    //         var counts = list.GroupBy(rd => rd.resource)
-                    //                         .ToDictionary(g => g.Key, g => g.Count());
-                    //         foreach (var kv in counts)
-                    //         {
-                    //             Debug.Log($"Resource {kv.Key}: {kv.Value}");
-                    //         }
-
-                    //         RaiseGridDataReady();
-                    //         RaiseResourceMapReceived(list);
-                    //         break;
-                    //     }
 
                     case "king_turn_start":
                         GameManager.Instance.StartKingTurn();
@@ -407,19 +437,17 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             });
         };
 
-        await websocket.Connect();
-    }
 
-    void Update()
-    {
-        // The NativeWebSocket library requires this to be called each frame
-        // to process message queues on the main thread.
-#if !UNITY_WEBGL || UNITY_EDITOR
-        if (websocket != null)
+
+        this.websocket.OnOpen += () =>
         {
-            websocket.DispatchMessageQueue();
-        }
-#endif
+            Debug.Log("✅ Connection to server opened!");
+            Debug.Log("SetupWebsocket <<<<  JOIN_RANDOM  >>>> called");
+            Send("join_random", new object());  // -> response: lobby_randomly_joined
+        };
+
+
+
     }
 
     /// <summary>
@@ -460,14 +488,5 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
         Debug.Log($"[NM] DelayedAnimationCleanup: Cleaning up animation for {GameManager.Instance?.MyRole}");
         InteractionManager.Instance.CleanupAfterRoundAnimation();
-    }
-
-    private async void OnApplicationQuit()
-    {
-        // Ensure the connection is closed when the game exits.
-        if (websocket != null && websocket.State == WebSocketState.Open)
-        {
-            await websocket.Close();
-        }
     }
 }

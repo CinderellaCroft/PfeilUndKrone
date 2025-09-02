@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+//using UnityEngine.SceneManagement;
 
 public class UIManager : Singleton<UIManager>
 {
@@ -33,6 +34,34 @@ public class UIManager : Singleton<UIManager>
         // Ensure end-game panels are hidden at the start
         if (winnerPanel != null) winnerPanel.SetActive(false);
         if (loserPanel != null) loserPanel.SetActive(false);
+    }
+
+    //MainBindings.cs MonoBehaviour mit containing fresh references
+    //called within MainBindings.cs
+    public void Bind(MainBindings b)
+    {
+        roleText = b.roleText; turnStatusText = b.turnStatusText; roundNumberText = b.roundNumberText;
+        infoText = b.infoText; resourcesText = b.resourcesText;
+        doneButton = b.doneButton; kingPathButton = b.kingPathButton; banditAmbushButton = b.banditAmbushButton;
+        winnerPanel = b.winnerPanel; loserPanel = b.loserPanel;
+    }
+
+
+
+    void CacheRefs()
+    {
+        roleText = GameObject.FindWithTag("RoleText")?.GetComponent<TextMeshProUGUI>();
+        turnStatusText = GameObject.FindWithTag("TurnStatusText")?.GetComponent<TextMeshProUGUI>();
+        roundNumberText = GameObject.FindWithTag("RoundText")?.GetComponent<TextMeshProUGUI>();
+        infoText = GameObject.FindWithTag("InfoText")?.GetComponent<TextMeshProUGUI>();
+        resourcesText = GameObject.FindWithTag("ResourcesText")?.GetComponent<TextMeshProUGUI>();
+
+        doneButton = GameObject.FindWithTag("DoneButton")?.GetComponent<Button>();
+        kingPathButton = GameObject.FindWithTag("WorkerButton")?.GetComponent<Button>();
+        banditAmbushButton = GameObject.FindWithTag("AmbushButton")?.GetComponent<Button>();
+
+        winnerPanel = GameObject.FindWithTag("WinnerPanel");
+        loserPanel = GameObject.FindWithTag("LoserPanel");
     }
 
     private void ValidateReferences()

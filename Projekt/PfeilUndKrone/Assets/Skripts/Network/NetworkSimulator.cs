@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using NetworkingDTOs;
+using System.Threading.Tasks;
 public class NetworkSimulator : SingletonNetworkService<NetworkSimulator>
 {
     protected override bool EditorOnly => true;
@@ -53,4 +54,14 @@ public class NetworkSimulator : SingletonNetworkService<NetworkSimulator>
 
     public override void Send(string type, object payload)
         => Debug.Log($"[Simulator Send] {type} → {JsonUtility.ToJson(payload)}");
+
+    public override Task Connect()
+    {
+        return Task.CompletedTask;
+    }
+    public override Task Disconnect()
+    {
+        return Task.CompletedTask;
+    }
+    public override bool IsConnected { get { return true; } }
 }
