@@ -22,6 +22,13 @@ public class InteractionManager : Singleton<InteractionManager>
     private List<List<Vector3>> allServerPathsWorld = new();
     private List<int> workerPathSteps = new();
     private List<bool> workerMovingStates = new();
+    
+    // Workers sitting on resource fields (visible when paths are created)
+    private List<GameObject> resourceFieldWorkers = new();
+    
+    // Stored path data for bandit visibility (resource fields only, no routes)
+    private List<Hex> submittedResourceFields = new();
+    private List<bool> submittedPathIsWagonWorker = new();
 
     public Material ambushLineMaterial;
     public int maxAmbushes = 5;
@@ -101,7 +108,11 @@ public class InteractionManager : Singleton<InteractionManager>
     public void EnableInteraction(PlayerRole role)
     {
         if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
-        else if (role == PlayerRole.Bandit) currentMode = InteractionMode.AmbushPlacement;
+        else if (role == PlayerRole.Bandit) 
+        {
+            currentMode = InteractionMode.AmbushPlacement;
+            ShowWorkersForBandit();
+        }
     }
 
     public void DisableInteraction()
@@ -358,6 +369,7 @@ public class InteractionManager : Singleton<InteractionManager>
         pathColorMap[currentPathIndex] = pathColor;
 
         VisualizeCompletedPath(currentPathIndex, pathColor);
+        SpawnWorkerOnResourceField(selectedResourceField, currentPathIndex);
 
         pathCreationState = PathCreationState.NotCreating;
         selectedVertices.Clear();
@@ -389,6 +401,123 @@ public class InteractionManager : Singleton<InteractionManager>
                 }
             }
         }
+    }
+
+    private void SpawnWorkerOnResourceField(Hex resourceField, int pathIndex)
+    {
+        if (workerPrefab == null)
+        {
+            Debug.LogError("WorkerPrefab is null! Cannot spawn worker on resource field.");
+            return;
+        }
+
+        // Calculate the world position of the center of the resource field
+        Vector3 fieldCenter = resourceField.ToWorld(gridGen.hexRadius);
+        fieldCenter.y = 0.35f; // Elevate slightly above the field
+
+        // Instantiate worker at the field center
+        GameObject resourceWorker = Instantiate(workerPrefab, fieldCenter, Quaternion.identity);
+        resourceWorker.SetActive(true);
+        
+        // Store the worker for later cleanup
+        resourceFieldWorkers.Add(resourceWorker);
+
+        Debug.Log($"Worker spawned on resource field ({resourceField.Q},{resourceField.R}) for path #{pathIndex + 1}");
+    }
+
+    private void ShowWorkersForBandit()
+    {
+        // Only show workers if there are submitted resource fields and we're the bandit
+        if (submittedResourceFields.Count == 0 || GameManager.Instance?.MyRole != PlayerRole.Bandit)
+        {
+            return;
+        }
+
+        if (workerPrefab == null)
+        {
+            Debug.LogError("WorkerPrefab is null! Cannot show workers to bandit.");
+            return;
+        }
+
+        // Clear any existing resource field workers
+        foreach (var worker in resourceFieldWorkers)
+        {
+            if (worker != null) Destroy(worker);
+        }
+        resourceFieldWorkers.Clear();
+
+        // Create workers on submitted resource fields for bandit to see
+        for (int i = 0; i < submittedResourceFields.Count; i++)
+        {
+            var resourceField = submittedResourceFields[i];
+            Vector3 fieldCenter = resourceField.ToWorld(gridGen.hexRadius);
+            fieldCenter.y = 0.35f; // Elevate slightly above the field
+
+            GameObject banditVisibleWorker = Instantiate(workerPrefab, fieldCenter, Quaternion.identity);
+            banditVisibleWorker.SetActive(true);
+            resourceFieldWorkers.Add(banditVisibleWorker);
+
+            Debug.Log($"Bandit can see worker on resource field ({resourceField.Q},{resourceField.R})");
+        }
+
+        // Hide path routes from bandit by resetting vertex colors
+        HidePathRoutesFromBandit();
+
+        Debug.Log($"Bandit can now see {submittedResourceFields.Count} workers on resource fields (without seeing routes)");
+    }
+
+    private void HidePathRoutesFromBandit()
+    {
+        // Only hide routes if we're the bandit
+        if (GameManager.Instance?.MyRole != PlayerRole.Bandit)
+        {
+            return;
+        }
+
+        // Reset any vertices that might have path colors from VisualizeCompletedPath
+        // This hides the routes without affecting the worker positions
+        for (int pathIndex = 0; pathIndex < pathColorMap.Count; pathIndex++)
+        {
+            if (pathIndex < completedPaths.Count)
+            {
+                var pathVertices = completedPaths[pathIndex];
+                foreach (var vertex in pathVertices)
+                {
+                    var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
+                    if (vertexGO != null)
+                    {
+                        var renderer = vertexGO.GetComponent<Renderer>();
+                        if (renderer != null)
+                        {
+                            renderer.material.color = originalVertexColor; // Reset to original color
+                        }
+                    }
+                }
+            }
+        }
+
+        Debug.Log("Path routes hidden from bandit view");
+    }
+
+    public void SetWorkerLocationsForBandit(NetworkingDTOs.WorkerLocationData[] workerLocations)
+    {
+        if (GameManager.Instance?.MyRole != PlayerRole.Bandit)
+        {
+            return; // Only bandit should receive this data
+        }
+
+        // Clear existing data
+        submittedResourceFields.Clear();
+        submittedPathIsWagonWorker.Clear();
+
+        // Convert server data to internal format
+        foreach (var location in workerLocations)
+        {
+            submittedResourceFields.Add(new Hex(location.resourceFieldQ, location.resourceFieldR));
+            submittedPathIsWagonWorker.Add(location.isWagonWorker);
+        }
+
+        Debug.Log($"Bandit received worker locations: {workerLocations.Length} workers");
     }
 
     public string GetPathCreationButtonText()
@@ -817,12 +946,30 @@ public class InteractionManager : Singleton<InteractionManager>
         net.Send("place_workers", pathData);
         DisableInteraction();
 
+        // Store resource field data for bandit visibility (without revealing routes)
+        submittedResourceFields.Clear();
+        submittedPathIsWagonWorker.Clear();
+        for (int i = 0; i < completedPathResourceFields.Count; i++)
+        {
+            submittedResourceFields.Add(completedPathResourceFields[i]);
+            submittedPathIsWagonWorker.Add(completedPathIsWagonWorker[i]);
+        }
+
+        // Workers will remain visible until execution phase starts
+        // They are hidden later when actual movement begins
+
         ResetAllVertexHighlights();
         return true;
     }
 
     public void ExecuteServerPath(List<HexVertex> path)
     {
+        // Hide resource field workers since execution is now starting
+        foreach (var worker in resourceFieldWorkers)
+        {
+            if (worker != null) worker.SetActive(false);
+        }
+
         serverPathWorld = path.Select(v => v.ToWorld(gridGen.hexRadius)).ToList();
         if (!serverPathWorld.Any()) return;
 
@@ -936,6 +1083,12 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void ExecuteServerPaths(List<List<HexVertex>> paths)
     {
+        // Hide resource field workers since execution is now starting
+        foreach (var worker in resourceFieldWorkers)
+        {
+            if (worker != null) worker.SetActive(false);
+        }
+
         // Clear existing workers
         foreach (var worker in workerObjects)
         {
@@ -1280,6 +1433,9 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             if (worker != null) worker.SetActive(false);
         }
+        
+        // Keep resource field workers visible during turn transitions
+        // They will be cleaned up only when execution starts or game resets
 
         pathCreationState = PathCreationState.NotCreating;
         currentPathIndex = -1;
@@ -1322,6 +1478,16 @@ public class InteractionManager : Singleton<InteractionManager>
         allServerPathsWorld.Clear();
         workerPathSteps.Clear();
         workerMovingStates.Clear();
+        
+        // Clean up resource field workers
+        foreach (var worker in resourceFieldWorkers)
+        {
+            if (worker != null)
+            {
+                Destroy(worker);
+            }
+        }
+        resourceFieldWorkers.Clear();
 
         // Reset vertex colors BEFORE clearing completedPaths
         ResetAllVertexHighlights();
@@ -1340,6 +1506,10 @@ public class InteractionManager : Singleton<InteractionManager>
         ownedWagonWorkers = 0;
         usedWagonWorkers = 0;
         currentPathUseWagonWorker = false;
+        
+        // Clear bandit visibility data
+        submittedResourceFields.Clear();
+        submittedPathIsWagonWorker.Clear();
 
         foreach (var orb in ambushOrbObjects)
         {

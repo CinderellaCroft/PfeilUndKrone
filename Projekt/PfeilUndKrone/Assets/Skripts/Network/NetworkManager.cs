@@ -185,6 +185,11 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         break;
 
                     case "bandit_turn_start":
+                        var banditTurnMsg = JsonUtility.FromJson<ServerMessageBanditTurnStart>(messageString);
+                        if (banditTurnMsg.payload.workerLocations != null && banditTurnMsg.payload.workerLocations.Length > 0)
+                        {
+                            InteractionManager.Instance.SetWorkerLocationsForBandit(banditTurnMsg.payload.workerLocations);
+                        }
                         GameManager.Instance.StartBanditTurn();
                         break;
 
