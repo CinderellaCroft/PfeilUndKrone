@@ -127,20 +127,19 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         );
                         break;
 
-                    //receive lobbyID by server, log lobbyID to console -> share lobbyID with a friend
+                    // receive lobbyID by server, log lobbyID to console -> share lobbyID with a friend
                     case "lobby_created":
                         var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
                         Debug.Log($"Created lobby: {msg.lobbyID}");
-                        UIManager.Instance.UpdateInfoText(
-                                $"Waiting for opponent… (Lobby ID: {msg.lobbyID})"
-                        );
+                        UIManager.Instance.ShowCreatedLobbyPanel(msg.lobbyID);
                         break;
-
+                    
+                    // Handle joining a specific lobby
                     case "lobby_joinedById":
                         var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
-                        Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} (queued={joinedMsg.payload.queued})");
+                        Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} by ID.");
+                        UIManager.Instance.UpdateInfoText($"Joined Lobby! Waiting for opponent...");
                         break;
-
 
                     case "match_created":
                         var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
@@ -442,17 +441,10 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             });
         };
 
-
-
         this.websocket.OnOpen += () =>
         {
             Debug.Log("✅ Connection to server opened!");
-            Debug.Log("SetupWebsocket <<<<  JOIN_RANDOM  >>>> called");
-            Send("join_random", new object());  // -> response: lobby_randomly_joined
         };
-
-
-
     }
 
     /// <summary>
@@ -479,6 +471,55 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         string finalJson = JsonUtility.ToJson(message);
 
         await websocket.SendText(finalJson);
+    }
+
+    /// <summary>
+    /// Called by UI to join a random game.
+    /// </summary>
+    public void JoinRandomLobby()
+    {
+        if (IsConnected)
+        {
+            Debug.Log("NM -> Sending 'join_random'");
+            Send("join_random", new object());
+        }
+        else
+        {
+            Debug.LogError("Cannot join random lobby, not connected!");
+        }
+    }
+
+    /// <summary>
+    /// Called by UI to create a new private lobby.
+    /// </summary>
+    public void CreatePrivateLobby()
+    {
+        if (IsConnected)
+        {
+            Debug.Log("NM -> Sending 'create_lobby'");
+            Send("create_lobby", new object());
+        }
+        else
+        {
+            Debug.LogError("Cannot create private lobby, not connected!");
+        }
+    }
+
+    /// <summary>
+    /// Called by UI to join an existing lobby by its ID.
+    /// </summary>
+    public void JoinLobbyById(string lobbyId)
+    {
+        if (IsConnected)
+        {
+            Debug.Log($"NM -> Sending 'join_lobbyById' for ID: {lobbyId}");
+            var payload = new ClientPayloadJoinLobby { lobby_id = lobbyId };
+            Send("join_lobbyById", payload);
+        }
+        else
+        {
+            Debug.LogError("Cannot join lobby by ID, not connected!");
+        }
     }
 
     // Coroutine to clean up animation after delay

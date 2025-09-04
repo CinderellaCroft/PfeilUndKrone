@@ -26,6 +26,8 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private GameObject winnerPanel; // Assign the WinnerPanel in the Inspector
     [SerializeField] private GameObject loserPanel;  // Assign the LoserPanel in the Inspector
 
+    [SerializeField] private LobbyUIController lobbyUIController;
+
     protected override void Awake()
     {
         base.Awake();
@@ -557,6 +559,22 @@ public class UIManager : Singleton<UIManager>
             winnerPanel.SetActive(false);
             loserPanel.SetActive(true);
             Debug.Log("💀 GAME OVER - YOU LOSE! 💀");
+        }
+    }
+
+    public void ShowCreatedLobbyPanel(string lobbyId)
+    {
+        if (lobbyUIController != null)
+        {
+            // Defer the work to the specific controller
+            lobbyUIController.DisplayLobbyId(lobbyId);
+            // You might also want to activate the panel containing the lobby controller here
+            // lobbyUIController.gameObject.SetActive(true);
+        }
+        else
+        {
+            // Fallback if the controller isn't assigned
+            UpdateInfoText($"Lobby Created! ID: {lobbyId}\n(Share with a friend)");
         }
     }
 }

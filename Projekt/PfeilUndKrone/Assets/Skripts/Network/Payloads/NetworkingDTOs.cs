@@ -372,4 +372,10 @@ namespace NetworkingDTOs
         public string type;
         public GameOverPayload payload;
     }
+
+    [System.Serializable]
+    public class ClientPayloadJoinLobby
+    {
+        public string lobby_id;
+    }
 }
