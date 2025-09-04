@@ -120,6 +120,28 @@ namespace NetworkingDTOs
         public HexEdge payload;
     }
 
+    [Serializable]
+    public class ServerMessageBanditTurnStart
+    {
+        public string type;
+        public BanditTurnStartPayload payload;
+    }
+
+    [Serializable]
+    public class BanditTurnStartPayload
+    {
+        public string message;
+        public WorkerLocationData[] workerLocations;
+    }
+
+    [Serializable]
+    public class WorkerLocationData
+    {
+        public int resourceFieldQ;
+        public int resourceFieldR;
+        public bool isWagonWorker;
+    }
+
     // kingPaths: gs.king.submittedPaths,
     // banditAmbushes: gs.bandit.submittedAmbushes,
     // banditBonus: { ...gameState.bandit.resources },
