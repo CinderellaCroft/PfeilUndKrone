@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
-
+    public string AssignedRole { get; private set; }
     private int PORT = 8080;
     private String IP = "localhost";//   "localhost"     "172.104.147.34"
     private WebSocket websocket;
@@ -120,31 +120,34 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         Debug.Log("cl: join_random -> sv: lobby_randomly_joined");
                         var lj = JsonUtility.FromJson<ServerMessageLobbyJoinedRandomly>(messageString);
                         Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
-                        UIManager.Instance.UpdateInfoText(
+                        MainMenu.Instance.UpdateStatusText(
                             lj.payload.queued
                                 ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})"
                                 : $"Opponent found! Starting…"
                         );
                         break;
 
-                    // receive lobbyID by server, log lobbyID to console -> share lobbyID with a friend
                     case "lobby_created":
                         var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
-                        Debug.Log($"Created lobby: {msg.lobbyID}");
-                        UIManager.Instance.ShowCreatedLobbyPanel(msg.lobbyID);
+                        if (MainMenu.Instance != null) MainMenu.Instance.ShowCreatedLobbyPanel(msg.payload.lobby_id);
                         break;
-                    
-                    // Handle joining a specific lobby
+
                     case "lobby_joinedById":
                         var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
-                        Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} by ID.");
-                        UIManager.Instance.UpdateInfoText($"Joined Lobby! Waiting for opponent...");
+                        string joinedByIdMessage = $"Joined Lobby! Waiting for opponent...";
+                        if (MainMenu.Instance != null) MainMenu.Instance.UpdateStatusText(joinedByIdMessage);
                         break;
 
                     case "match_created":
                         var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
-                        Debug.Log($"Player joined as: {matchMessage.payload.role}");
-                        Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
+                        Debug.Log($"Match created! Assigning role: {matchMessage.payload.role}. Loading Main scene...");
+                        
+                        // 1. Store the role in our new property
+                        AssignedRole = matchMessage.payload.role;
+                        
+                        // 2. Load the main game scene
+                        UnityEngine.SceneManagement.SceneManager.LoadScene("Main");
+                            
                         RaiseMatchCreated(matchMessage.payload.role);
                         break;
 
@@ -416,7 +419,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
                     case "info":
                         var info = JsonUtility.FromJson<ServerMessageStringPayload>(messageString);
-                        UIManager.Instance.UpdateInfoText(info.payload);
+                        MainMenu.Instance.UpdateStatusText(info.payload);
                         Debug.Log($"Info-Message from Server: {info.payload}");
                         break;
 
@@ -447,6 +450,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         };
     }
 
+
     /// <summary>
     /// Sends a structured message to the server.
     /// </summary>
@@ -456,20 +460,22 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     {
         if (websocket.State != WebSocketState.Open)
         {
-            Debug.LogError("❌ Error: Cannot send message, websocket is not open.");
+            Debug.LogError("Error: Cannot send message, websocket is not open.");
             return;
         }
 
-        // 1. Serialize the payload object (e.g., PathData) into its own JSON string.
-        // This is the critical step to fix the serialization bug.
+        // 1. Serialize the payload object into its JSON string representation.
         string payloadJson = JsonUtility.ToJson(payloadObject);
 
-        // 2. Create the outer message wrapper, placing the JSON string into the payload field.
-        ClientMessage message = new ClientMessage { type = type, payload = payloadJson };
-
-        // 3. Serialize the final wrapper object into the final JSON string to be sent.
-        string finalJson = JsonUtility.ToJson(message);
-
+        // 2. Construct the final JSON string manually to ensure the payload is a nested object, not a string.
+        // This avoids the double-serialization issue.
+        string finalJson = $"{{\"type\":\"{type}\",\"payload\":{payloadJson}}}";
+        
+        // This is how it looked before the fix:
+        // ClientMessage message = new ClientMessage { type = type, payload = payloadJson };
+        // string finalJson = JsonUtility.ToJson(message);
+        
+        Debug.Log($"Sending message: {finalJson}"); // Added for debugging
         await websocket.SendText(finalJson);
     }
 

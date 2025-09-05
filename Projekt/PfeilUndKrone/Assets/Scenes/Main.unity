@@ -1289,9 +1289,29 @@ MonoBehaviour:
   m_GameObject: {fileID: 571740906}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96dbcbb76a2a6ba41a73bfdb4e5d9cf4, type: 3}
+  m_Script: {fileID: 11500000, guid: e07757e587b0dba4ab283be3b2ea0443, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  roleText: {fileID: 1777561644}
+  turnStatusText: {fileID: 1405237375}
+  roundNumberText: {fileID: 867210973}
+  infoText: {fileID: 653193446}
+  resourcesText: {fileID: 1257991122}
+  doneButton: {fileID: 688913518}
+  kingPathButton: {fileID: 912855319}
+  banditAmbushButton: {fileID: 558135603}
+  winnerPanel: {fileID: 231203891}
+  loserPanel: {fileID: 2000159011}
+  hexFieldContainer: {fileID: 751459215}
+  KingCastlePrefab: {fileID: 919132149155446097, guid: 9f1fb143cec605449b8986a865f6b057, type: 3}
+  KingMoatPrefab: {fileID: 919132149155446097, guid: 977f32f3baba86b4da5d2d904cea7af5, type: 3}
+  resourcePrefabs: []
+  BanditCastlePrefab: {fileID: 2407626995703613287, guid: b107b7c4ebba97f4683143ae50da2eac, type: 3}
+  BanditMoatPrefab: {fileID: 919132149155446097, guid: 770cbdc88a3c7094cba5b415ac903eeb, type: 3}
+  unknownResourcePrefabs: []
+  desertPrefab: {fileID: 0}
+  vertexMarkerPrefab: {fileID: 0}
+  edgeMarkerPrefab: {fileID: 0}
 --- !u!4 &571740908
 Transform:
   m_ObjectHideFlags: 0

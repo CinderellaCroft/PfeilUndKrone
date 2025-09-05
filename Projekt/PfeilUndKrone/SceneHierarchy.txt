@@ -1,0 +1,534 @@
+- Main Camera [GameObject]
+  • Transform
+  • Camera
+  • AudioListener
+  • CameraOrbit
+- Directional Light [GameObject]
+  • Transform
+  • Light
+- Canvas [GameObject]
+  • RectTransform
+  • Canvas
+  • CanvasScaler
+  • GraphicRaycaster
+  - ToggleSound [GameObject]
+    • RectTransform
+    • Toggle
+    - Background [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - Checkmark [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+  - Title [GameObject]
+    • RectTransform
+    • CanvasRenderer
+    • Image
+    - Title [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • TextMeshProUGUI
+      - Image [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+  - HintergundButtons [GameObject]
+    • RectTransform
+    • CanvasRenderer
+    • Image
+    - JoinGameBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - JoinGameBtnText [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - CreateGameBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - JoinRandomGameBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - Image [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+  - HintergrundButtons2 [GameObject]
+    • RectTransform
+    • CanvasRenderer
+    • Image
+    - TutorialBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - CreditsBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - ExitBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - Image [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+  - CreditsPanel [GameObject]
+    • RectTransform
+    • CanvasRenderer
+    • Image
+    - TitleBackground [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - CreditsBackground [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - CreditsText [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - BackBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - HSFL Logo [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+  - TutorialPanelsGerman [GameObject]
+    • Transform
+    - TutorialPanelGerman [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - IntroText [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialKönigPanel1 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - KingText1 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - WorkerPathImage [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialKönigPanel2 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - KingText2 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - KingText3 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialRebellPanel1 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - RebellText1 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - WorkerPath [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialRebellPanel2 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - RebellText2 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - StartBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+  - TutorialPanelsEnglish [GameObject]
+    • Transform
+    - TutorialPanelEnglish [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - IntroText [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialKingPanel1 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - KingText1 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - WorkerPathImage [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialKingPanel2 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - KingText2 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - KingText3 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialRebellPanel1 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - RebellText1 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - DoneButton [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - WorkerPath [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+    - TutorialRebellPanel2 [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      - BackBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - RebellText2 [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+      - StartBtn [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • Image
+        • Button
+        - Text (TMP) [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+      - Title [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+  - CreateGameView [GameObject]
+    • RectTransform
+    - CreateGameViewText [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • TextMeshProUGUI
+    - CreateGameViewCopyBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+  - JoinGameView [GameObject]
+    • RectTransform
+    - JoinGameViewInput [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • TMP_InputField
+      - Text Area [GameObject]
+        • RectTransform
+        • RectMask2D
+        - Placeholder [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+          • LayoutElement
+        - Text [GameObject]
+          • RectTransform
+          • CanvasRenderer
+          • TextMeshProUGUI
+    - JoinGameViewJoinGameBtn [GameObject]
+      • RectTransform
+      • CanvasRenderer
+      • Image
+      • Button
+      - Text (TMP) [GameObject]
+        • RectTransform
+        • CanvasRenderer
+        • TextMeshProUGUI
+  - statusText [GameObject]
+    • RectTransform
+    • CanvasRenderer
+    • TextMeshProUGUI
+- EventSystem [GameObject]
+  • Transform
+  • EventSystem
+  • InputSystemUIInputModule
+- Managers [GameObject]
+  • Transform
+  • UnityMainThreadDispatcher
+  • NetworkManager
+  • MainMenu
+- SoundManager [GameObject]
+  • Transform
+  • SoundManager
+  - Audio Source [GameObject]
+    • Transform
+    • AudioSource
+- Krone [GameObject]
+  • Transform
+  • MeshFilter
+  • MeshRenderer
+  • CameraOrbit

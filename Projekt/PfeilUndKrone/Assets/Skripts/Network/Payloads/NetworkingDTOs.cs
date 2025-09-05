@@ -347,7 +347,7 @@ namespace NetworkingDTOs
     public class ServerMessageLobbyCreated
     {
         public string type;
-        public string lobbyID;
+        public LobbyCreatedPayload payload; // Use the new payload class
     }
 
     [Serializable]
@@ -371,6 +371,12 @@ namespace NetworkingDTOs
     {
         public string type;
         public GameOverPayload payload;
+    }
+
+    [Serializable]
+    public class LobbyCreatedPayload
+    {
+        public string lobby_id;
     }
 
     [System.Serializable]

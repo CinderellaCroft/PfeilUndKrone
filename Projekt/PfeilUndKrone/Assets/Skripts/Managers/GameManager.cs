@@ -28,6 +28,14 @@ public class GameManager : Singleton<GameManager>
 
     private bool subscribed = false;
 
+    void Start()
+    {
+        if (networkService is NetworkManager nm && !string.IsNullOrEmpty(nm.AssignedRole))
+        {
+            SetRole(nm.AssignedRole);
+        }
+    }
+
     void OnEnable()
     {
         if (!subscribed)
@@ -40,7 +48,6 @@ public class GameManager : Singleton<GameManager>
         }
 
     }
-
 
     void OnDisable()
     {

@@ -24,30 +24,47 @@ public class UIManager : Singleton<UIManager>
 
     [Header("End Game Panels")]
     [SerializeField] private GameObject winnerPanel; // Assign the WinnerPanel in the Inspector
-    [SerializeField] private GameObject loserPanel;  // Assign the LoserPanel in the Inspector
-
-    [SerializeField] private LobbyUIController lobbyUIController;
+    [SerializeField] private GameObject loserPanel;  // Assign the LoserPanel in the Inspector1
 
     protected override void Awake()
     {
         base.Awake();
+        // ValidateReferences(); // <-- We will move this call
+    }
+
+    public void Bind(MainBindings b)
+    {
+        // 1. Assign all references from the binder
+        roleText = b.roleText; 
+        turnStatusText = b.turnStatusText; 
+        roundNumberText = b.roundNumberText;
+        infoText = b.infoText; 
+        resourcesText = b.resourcesText;
+        doneButton = b.doneButton; 
+        kingPathButton = b.kingPathButton; 
+        banditAmbushButton = b.banditAmbushButton;
+        winnerPanel = b.winnerPanel; 
+        loserPanel = b.loserPanel;
+
+        // 2. Now that references are assigned, validate them
         ValidateReferences();
 
-        // Ensure end-game panels are hidden at the start
+        // 3. Add all button listeners here
+        doneButton.onClick.AddListener(OnDoneButtonClicked);
+        if (kingPathButton != null) kingPathButton.onClick.AddListener(OnKingPathButtonClicked);
+        if (kingPathConfirmButton != null) kingPathConfirmButton.onClick.AddListener(OnKingPathConfirmButtonClicked);
+        if (kingWorkerBuyButton != null) kingWorkerBuyButton.onClick.AddListener(OnKingWorkerBuyButtonClicked);
+        if (kingWagonUpgradeButton != null) kingWagonUpgradeButton.onClick.AddListener(OnKingWagonUpgradeButtonClicked);
+        if (kingWagonPathButton != null) kingWagonPathButton.onClick.AddListener(OnKingWagonPathButtonClicked);
+        if (banditAmbushButton != null) banditAmbushButton.onClick.AddListener(OnBanditAmbushButtonClicked);
+
+        // 4. Set initial button and panel states
+        SetDoneButtonActive(false);
+        SetKingButtonsActive(false);
+        SetBanditButtonsActive(false);
         if (winnerPanel != null) winnerPanel.SetActive(false);
         if (loserPanel != null) loserPanel.SetActive(false);
     }
-
-    //MainBindings.cs MonoBehaviour mit containing fresh references
-    //called within MainBindings.cs
-    public void Bind(MainBindings b)
-    {
-        roleText = b.roleText; turnStatusText = b.turnStatusText; roundNumberText = b.roundNumberText;
-        infoText = b.infoText; resourcesText = b.resourcesText;
-        doneButton = b.doneButton; kingPathButton = b.kingPathButton; banditAmbushButton = b.banditAmbushButton;
-        winnerPanel = b.winnerPanel; loserPanel = b.loserPanel;
-    }
-
 
 
     void CacheRefs()
@@ -92,21 +109,6 @@ public class UIManager : Singleton<UIManager>
             UnityEditor.EditorApplication.isPlaying = false;
 #endif
         }
-    }
-
-    void Start()
-    {
-        doneButton.onClick.AddListener(OnDoneButtonClicked);
-        if (kingPathButton != null) kingPathButton.onClick.AddListener(OnKingPathButtonClicked);
-        if (kingPathConfirmButton != null) kingPathConfirmButton.onClick.AddListener(OnKingPathConfirmButtonClicked);
-        if (kingWorkerBuyButton != null) kingWorkerBuyButton.onClick.AddListener(OnKingWorkerBuyButtonClicked);
-        if (kingWagonUpgradeButton != null) kingWagonUpgradeButton.onClick.AddListener(OnKingWagonUpgradeButtonClicked);
-        if (kingWagonPathButton != null) kingWagonPathButton.onClick.AddListener(OnKingWagonPathButtonClicked);
-        if (banditAmbushButton != null) banditAmbushButton.onClick.AddListener(OnBanditAmbushButtonClicked);
-
-        SetDoneButtonActive(false);
-        SetKingButtonsActive(false);
-        SetBanditButtonsActive(false);
     }
 
     public void UpdateRoleText(PlayerRole role)
@@ -559,22 +561,6 @@ public class UIManager : Singleton<UIManager>
             winnerPanel.SetActive(false);
             loserPanel.SetActive(true);
             Debug.Log("💀 GAME OVER - YOU LOSE! 💀");
-        }
-    }
-
-    public void ShowCreatedLobbyPanel(string lobbyId)
-    {
-        if (lobbyUIController != null)
-        {
-            // Defer the work to the specific controller
-            lobbyUIController.DisplayLobbyId(lobbyId);
-            // You might also want to activate the panel containing the lobby controller here
-            // lobbyUIController.gameObject.SetActive(true);
-        }
-        else
-        {
-            // Fallback if the controller isn't assigned
-            UpdateInfoText($"Lobby Created! ID: {lobbyId}\n(Share with a friend)");
         }
     }
 }
