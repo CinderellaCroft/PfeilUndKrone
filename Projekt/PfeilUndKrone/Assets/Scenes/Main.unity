@@ -1289,9 +1289,49 @@ MonoBehaviour:
   m_GameObject: {fileID: 571740906}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96dbcbb76a2a6ba41a73bfdb4e5d9cf4, type: 3}
+  m_Script: {fileID: 11500000, guid: e07757e587b0dba4ab283be3b2ea0443, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  roleText: {fileID: 1777561644}
+  turnStatusText: {fileID: 1405237375}
+  roundNumberText: {fileID: 867210973}
+  infoText: {fileID: 653193446}
+  resourcesText: {fileID: 1257991122}
+  workerText: {fileID: 1353366511}
+  doneButton: {fileID: 688913518}
+  kingPathButton: {fileID: 1454433296}
+  kingPathConfirmButton: {fileID: 912855319}
+  kingWorkerBuyButton: {fileID: 2126951901}
+  kingWagonUpgradeButton: {fileID: 404648318}
+  kingWagonPathButton: {fileID: 886068161}
+  banditAmbushButton: {fileID: 558135603}
+  winnerPanel: {fileID: 231203891}
+  loserPanel: {fileID: 2000159011}
+  lobbyUIController: {fileID: 0}
+  hexFieldContainer: {fileID: 0}
+  KingCastlePrefab: {fileID: 0}
+  KingMoatPrefab: {fileID: 0}
+  resourcePrefabs:
+  - type: 0
+    prefab: {fileID: 6488751737918772643, guid: eba4308856cfcf641ac4a9e6b9e35072, type: 3}
+  - type: 1
+    prefab: {fileID: 2853539227547289673, guid: 4537516af8e3358449600717fcf9d5b0, type: 3}
+  - type: 2
+    prefab: {fileID: 6690914167008999101, guid: 53fe8e6a228ce7841915d0c4354e5a22, type: 3}
+  - type: 3
+    prefab: {fileID: 919132149155446097, guid: b47ebfcc404381c4c9908318e7a9321a, type: 3}
+  BanditCastlePrefab: {fileID: 0}
+  BanditMoatPrefab: {fileID: 0}
+  unknownResourcePrefabs:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  desertPrefab: {fileID: 0}
+  vertexMarkerPrefab: {fileID: 0}
+  edgeMarkerPrefab: {fileID: 0}
 --- !u!4 &571740908
 Transform:
   m_ObjectHideFlags: 0
@@ -2968,6 +3008,7 @@ MonoBehaviour:
   banditAmbushButton: {fileID: 558135603}
   winnerPanel: {fileID: 231203891}
   loserPanel: {fileID: 2000159011}
+  lobbyUIController: {fileID: 0}
 --- !u!4 &1585417541
 Transform:
   m_ObjectHideFlags: 0

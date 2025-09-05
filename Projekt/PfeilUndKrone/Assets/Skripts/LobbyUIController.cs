@@ -31,21 +31,43 @@ public class LobbyUIController : MonoBehaviour
 
     void Start()
     {
-        // Wire up all the button listeners
-        findRandomGameBtn.onClick.AddListener(HandleFindRandomGame);
-        showCreateGameViewBtn.onClick.AddListener(HandleCreatePrivateGame);
-        showJoinGameViewBtn.onClick.AddListener(() =>
-        {
-            createGameViewPanel.SetActive(false);
-            joinGameViewPanel.SetActive(true);
-        });
+        // Wire up all the button listeners with null checks
+        if (findRandomGameBtn != null)
+            findRandomGameBtn.onClick.AddListener(HandleFindRandomGame);
+        else
+            Debug.LogError("findRandomGameBtn is null in LobbyUIController!");
 
-        copyLobbyIdBtn.onClick.AddListener(HandleCopyLobbyId);
-        joinGameBtn.onClick.AddListener(HandleJoinGameById);
+        if (showCreateGameViewBtn != null)
+            showCreateGameViewBtn.onClick.AddListener(HandleCreatePrivateGame);
+        else
+            Debug.LogError("showCreateGameViewBtn is null in LobbyUIController!");
+
+        if (showJoinGameViewBtn != null)
+        {
+            showJoinGameViewBtn.onClick.AddListener(() =>
+            {
+                if (createGameViewPanel != null) createGameViewPanel.SetActive(false);
+                if (joinGameViewPanel != null) joinGameViewPanel.SetActive(true);
+            });
+        }
+        else
+        {
+            Debug.LogError("showJoinGameViewBtn is null in LobbyUIController!");
+        }
+
+        if (copyLobbyIdBtn != null)
+            copyLobbyIdBtn.onClick.AddListener(HandleCopyLobbyId);
+        else
+            Debug.LogError("copyLobbyIdBtn is null in LobbyUIController!");
+
+        if (joinGameBtn != null)
+            joinGameBtn.onClick.AddListener(HandleJoinGameById);
+        else
+            Debug.LogError("joinGameBtn is null in LobbyUIController!");
         
-        // Ensure panels are hidden at the start
-        createGameViewPanel.SetActive(false);
-        joinGameViewPanel.SetActive(false);
+        // Ensure panels are hidden at the start with null checks
+        if (createGameViewPanel != null) createGameViewPanel.SetActive(false);
+        if (joinGameViewPanel != null) joinGameViewPanel.SetActive(false);
     }
 
     // --- Button Handlers ---
@@ -53,27 +75,83 @@ public class LobbyUIController : MonoBehaviour
     private async void HandleFindRandomGame()
     {
         Debug.Log("UI: Find Random Game clicked.");
+        
+        // Check if NetworkManager exists
+        if (NetworkManager.Instance == null)
+        {
+            Debug.LogError("NetworkManager.Instance is null! Make sure TitleSceneManager is in the scene.");
+            return;
+        }
+        
         // Ensure we are connected before sending the message
         if (!NetworkManager.Instance.IsConnected)
         {
+            Debug.Log("Not connected, attempting to connect...");
             await NetworkManager.Instance.Connect();
+            
+            // Wait for connection to be properly established
+            int attempts = 0;
+            while (!NetworkManager.Instance.IsConnected && attempts < 50) // Max 5 seconds
+            {
+                await System.Threading.Tasks.Task.Delay(100);
+                attempts++;
+                Debug.Log($"Waiting for connection... Attempt {attempts}, IsConnected: {NetworkManager.Instance.IsConnected}");
+            }
         }
-        NetworkManager.Instance.JoinRandomLobby();
-        // Hide these panels, the UIManager will show a "waiting..." text
-        gameObject.SetActive(false); 
+        
+        // Double-check connection before sending
+        Debug.Log($"Connection state after connect: {NetworkManager.Instance.IsConnected}");
+        if (NetworkManager.Instance.IsConnected)
+        {
+            Debug.Log("About to call JoinRandomLobby()");
+            NetworkManager.Instance.JoinRandomLobby();
+            Debug.Log("JoinRandomLobby() called successfully");
+            // Hide these panels, the UIManager will show a "waiting..." text
+            gameObject.SetActive(false);
+            Debug.Log("LobbyUI panels hidden - waiting for server response");
+        }
+        else
+        {
+            Debug.LogError("Failed to connect to server!");
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateInfoText("Failed to connect to server!");
+            }
+        }
     }
 
     private async void HandleCreatePrivateGame()
     {
         Debug.Log("UI: Create Private Game clicked.");
+        
+        // Check if NetworkManager exists
+        if (NetworkManager.Instance == null)
+        {
+            Debug.LogError("NetworkManager.Instance is null! Make sure TitleSceneManager is in the scene.");
+            return;
+        }
+        
         if (!NetworkManager.Instance.IsConnected)
         {
+            Debug.Log("Not connected, attempting to connect...");
             await NetworkManager.Instance.Connect();
         }
-        NetworkManager.Instance.CreatePrivateLobby();
-        // Show the create view, which will be populated by DisplayLobbyId
-        createGameViewPanel.SetActive(true);
-        joinGameViewPanel.SetActive(false);
+        
+        if (NetworkManager.Instance.IsConnected)
+        {
+            NetworkManager.Instance.CreatePrivateLobby();
+            // Show the create view, which will be populated by DisplayLobbyId
+            createGameViewPanel.SetActive(true);
+            joinGameViewPanel.SetActive(false);
+        }
+        else
+        {
+            Debug.LogError("Failed to connect to server!");
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateInfoText("Failed to connect to server!");
+            }
+        }
     }
 
     private async void HandleJoinGameById()
@@ -86,13 +164,34 @@ public class LobbyUIController : MonoBehaviour
         }
 
         Debug.Log($"UI: Joining game with ID: {lobbyId}");
+        
+        // Check if NetworkManager exists
+        if (NetworkManager.Instance == null)
+        {
+            Debug.LogError("NetworkManager.Instance is null! Make sure TitleSceneManager is in the scene.");
+            return;
+        }
+        
         if (!NetworkManager.Instance.IsConnected)
         {
+            Debug.Log("Not connected, attempting to connect...");
             await NetworkManager.Instance.Connect();
         }
-        NetworkManager.Instance.JoinLobbyById(lobbyId);
-        // Hide these panels, the UIManager will update text on success
-        gameObject.SetActive(false);
+        
+        if (NetworkManager.Instance.IsConnected)
+        {
+            NetworkManager.Instance.JoinLobbyById(lobbyId);
+            // Hide these panels, the UIManager will update text on success
+            gameObject.SetActive(false);
+        }
+        else
+        {
+            Debug.LogError("Failed to connect to server!");
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateInfoText("Failed to connect to server!");
+            }
+        }
     }
 
     private void HandleCopyLobbyId()

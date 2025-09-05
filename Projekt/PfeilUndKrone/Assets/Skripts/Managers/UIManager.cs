@@ -42,10 +42,34 @@ public class UIManager : Singleton<UIManager>
     //called within MainBindings.cs
     public void Bind(MainBindings b)
     {
-        roleText = b.roleText; turnStatusText = b.turnStatusText; roundNumberText = b.roundNumberText;
-        infoText = b.infoText; resourcesText = b.resourcesText;
-        doneButton = b.doneButton; kingPathButton = b.kingPathButton; banditAmbushButton = b.banditAmbushButton;
-        winnerPanel = b.winnerPanel; loserPanel = b.loserPanel;
+        Debug.Log("[UIManager] Binding references from MainBindings");
+        
+        roleText = b.roleText; 
+        turnStatusText = b.turnStatusText; 
+        roundNumberText = b.roundNumberText;
+        infoText = b.infoText; 
+        resourcesText = b.resourcesText;
+        workerText = b.workerText;
+        
+        doneButton = b.doneButton; 
+        kingPathButton = b.kingPathButton;
+        kingPathConfirmButton = b.kingPathConfirmButton;
+        kingWorkerBuyButton = b.kingWorkerBuyButton;
+        kingWagonUpgradeButton = b.kingWagonUpgradeButton;
+        kingWagonPathButton = b.kingWagonPathButton;
+        banditAmbushButton = b.banditAmbushButton;
+        
+        winnerPanel = b.winnerPanel; 
+        loserPanel = b.loserPanel;
+        lobbyUIController = b.lobbyUIController;
+        
+        Debug.Log("[UIManager] All references bound from MainBindings");
+        
+        // Revalidate after binding
+        ValidateReferences();
+        
+        // Re-setup button listeners since references have changed
+        SetupButtonListeners();
     }
 
 
@@ -68,13 +92,18 @@ public class UIManager : Singleton<UIManager>
 
     private void ValidateReferences()
     {
-        if (roleText == null || turnStatusText == null || infoText == null || resourcesText == null || workerText == null || doneButton == null)
+        // Check critical UI elements
+        bool hasCriticalError = false;
+        if (roleText == null) { Debug.LogError("UIManager: roleText is null"); hasCriticalError = true; }
+        if (turnStatusText == null) { Debug.LogError("UIManager: turnStatusText is null"); hasCriticalError = true; }
+        if (infoText == null) { Debug.LogError("UIManager: infoText is null"); hasCriticalError = true; }
+        if (resourcesText == null) { Debug.LogError("UIManager: resourcesText is null"); hasCriticalError = true; }
+        if (doneButton == null) { Debug.LogError("UIManager: doneButton is null"); hasCriticalError = true; }
+        
+        if (hasCriticalError)
         {
             Debug.LogError("---!!! CRITICAL SETUP ERROR IN UIMANAGER !!!---", this.gameObject);
-            Debug.LogError("--> One or more UI element references (Text, Button) are NOT assigned in the Inspector. Please select _UIManager and assign them.", this.gameObject);
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#endif
+            Debug.LogError("--> One or more critical UI element references are NOT assigned. Check MainBindings assignments.", this.gameObject);
         }
 
         if (roundNumberText == null) Debug.LogWarning("roundNumberText is not assigned in UIManager.", this.gameObject);
@@ -96,17 +125,59 @@ public class UIManager : Singleton<UIManager>
 
     void Start()
     {
-        doneButton.onClick.AddListener(OnDoneButtonClicked);
-        if (kingPathButton != null) kingPathButton.onClick.AddListener(OnKingPathButtonClicked);
-        if (kingPathConfirmButton != null) kingPathConfirmButton.onClick.AddListener(OnKingPathConfirmButtonClicked);
-        if (kingWorkerBuyButton != null) kingWorkerBuyButton.onClick.AddListener(OnKingWorkerBuyButtonClicked);
-        if (kingWagonUpgradeButton != null) kingWagonUpgradeButton.onClick.AddListener(OnKingWagonUpgradeButtonClicked);
-        if (kingWagonPathButton != null) kingWagonPathButton.onClick.AddListener(OnKingWagonPathButtonClicked);
-        if (banditAmbushButton != null) banditAmbushButton.onClick.AddListener(OnBanditAmbushButtonClicked);
-
+        SetupButtonListeners();
         SetDoneButtonActive(false);
         SetKingButtonsActive(false);
         SetBanditButtonsActive(false);
+    }
+    
+    private bool listenersSetup = false;
+    
+    private void SetupButtonListeners()
+    {
+        Debug.Log("[UIManager] Setting up button listeners");
+        
+        // Clear any existing listeners first to avoid duplicates
+        if (doneButton != null) 
+        {
+            doneButton.onClick.RemoveAllListeners();
+            doneButton.onClick.AddListener(OnDoneButtonClicked);
+        }
+        else Debug.LogError("UIManager: doneButton is null when setting up listeners!");
+        
+        if (kingPathButton != null) 
+        {
+            kingPathButton.onClick.RemoveAllListeners();
+            kingPathButton.onClick.AddListener(OnKingPathButtonClicked);
+        }
+        if (kingPathConfirmButton != null) 
+        {
+            kingPathConfirmButton.onClick.RemoveAllListeners();
+            kingPathConfirmButton.onClick.AddListener(OnKingPathConfirmButtonClicked);
+        }
+        if (kingWorkerBuyButton != null) 
+        {
+            kingWorkerBuyButton.onClick.RemoveAllListeners();
+            kingWorkerBuyButton.onClick.AddListener(OnKingWorkerBuyButtonClicked);
+        }
+        if (kingWagonUpgradeButton != null) 
+        {
+            kingWagonUpgradeButton.onClick.RemoveAllListeners();
+            kingWagonUpgradeButton.onClick.AddListener(OnKingWagonUpgradeButtonClicked);
+        }
+        if (kingWagonPathButton != null) 
+        {
+            kingWagonPathButton.onClick.RemoveAllListeners();
+            kingWagonPathButton.onClick.AddListener(OnKingWagonPathButtonClicked);
+        }
+        if (banditAmbushButton != null) 
+        {
+            banditAmbushButton.onClick.RemoveAllListeners();
+            banditAmbushButton.onClick.AddListener(OnBanditAmbushButtonClicked);
+        }
+        
+        listenersSetup = true;
+        Debug.Log("[UIManager] Button listeners setup complete");
     }
 
     public void UpdateRoleText(PlayerRole role)
@@ -185,12 +256,15 @@ public class UIManager : Singleton<UIManager>
 
     public void SetDoneButtonActive(bool isActive)
     {
-        doneButton.gameObject.SetActive(isActive);
+        if (doneButton != null && doneButton.gameObject != null)
+        {
+            doneButton.gameObject.SetActive(isActive);
+        }
     }
 
     public void SetKingButtonsActive(bool isActive)
     {
-        if (kingPathButton != null)
+        if (kingPathButton != null && kingPathButton.gameObject != null)
         {
             kingPathButton.gameObject.SetActive(isActive);
             if (isActive)
@@ -198,7 +272,7 @@ public class UIManager : Singleton<UIManager>
                 UpdateKingPathButtonText();
             }
         }
-        if (kingPathConfirmButton != null)
+        if (kingPathConfirmButton != null && kingPathConfirmButton.gameObject != null)
         {
             kingPathConfirmButton.gameObject.SetActive(isActive);
             if (isActive)
@@ -206,7 +280,7 @@ public class UIManager : Singleton<UIManager>
                 UpdateKingPathConfirmButtonText();
             }
         }
-        if (kingWorkerBuyButton != null)
+        if (kingWorkerBuyButton != null && kingWorkerBuyButton.gameObject != null)
         {
             kingWorkerBuyButton.gameObject.SetActive(isActive);
             if (isActive)
@@ -214,7 +288,7 @@ public class UIManager : Singleton<UIManager>
                 UpdateKingWorkerBuyButtonText();
             }
         }
-        if (kingWagonUpgradeButton != null)
+        if (kingWagonUpgradeButton != null && kingWagonUpgradeButton.gameObject != null)
         {
             kingWagonUpgradeButton.gameObject.SetActive(isActive);
             if (isActive)
@@ -222,7 +296,7 @@ public class UIManager : Singleton<UIManager>
                 UpdateKingWagonUpgradeButtonText();
             }
         }
-        if (kingWagonPathButton != null)
+        if (kingWagonPathButton != null && kingWagonPathButton.gameObject != null)
         {
             kingWagonPathButton.gameObject.SetActive(isActive);
             if (isActive)
@@ -234,7 +308,7 @@ public class UIManager : Singleton<UIManager>
 
     public void SetBanditButtonsActive(bool isActive)
     {
-        if (banditAmbushButton != null)
+        if (banditAmbushButton != null && banditAmbushButton.gameObject != null)
         {
             banditAmbushButton.gameObject.SetActive(isActive);
             if (isActive)
@@ -576,5 +650,47 @@ public class UIManager : Singleton<UIManager>
             // Fallback if the controller isn't assigned
             UpdateInfoText($"Lobby Created! ID: {lobbyId}\n(Share with a friend)");
         }
+    }
+    
+    /// <summary>
+    /// Complete reset for a new game session
+    /// </summary>
+    public void ResetForNewGame()
+    {
+        Debug.Log("[UIManager] ResetForNewGame() - Resetting UI state");
+        
+        // Check if we're in a scene that has UI elements (not title scene)
+        if (roleText == null && turnStatusText == null && doneButton == null)
+        {
+            Debug.Log("[UIManager] ResetForNewGame() - No UI elements found, likely in title scene. Skipping UI reset.");
+            return;
+        }
+        
+        // Reset all UI text to default states (with null checks)
+        if (roleText != null) roleText.text = "Role: None";
+        if (turnStatusText != null) turnStatusText.text = "Waiting...";
+        if (roundNumberText != null) roundNumberText.text = "Round: 0";
+        if (infoText != null) infoText.text = "";
+        if (resourcesText != null) resourcesText.text = "Gold: 0 | Wood: 0 | Grain: 0";
+        if (workerText != null) workerText.text = "";
+        
+        // Hide all buttons (with null checks)
+        SetDoneButtonActive(false);
+        SetKingButtonsActive(false);
+        SetBanditButtonsActive(false);
+        
+        // Hide end game panels (with null checks)
+        if (winnerPanel != null) winnerPanel.SetActive(false);
+        if (loserPanel != null) loserPanel.SetActive(false);
+        
+        // Show main game UI elements (with null checks)
+        if (roleText != null && roleText.gameObject != null) roleText.gameObject.SetActive(true);
+        if (turnStatusText != null && turnStatusText.gameObject != null) turnStatusText.gameObject.SetActive(true);
+        if (roundNumberText != null && roundNumberText.gameObject != null) roundNumberText.gameObject.SetActive(true);
+        if (infoText != null && infoText.gameObject != null) infoText.gameObject.SetActive(true);
+        if (resourcesText != null && resourcesText.gameObject != null) resourcesText.gameObject.SetActive(true);
+        if (workerText != null && workerText.gameObject != null) workerText.gameObject.SetActive(true);
+        
+        Debug.Log("[UIManager] ResetForNewGame() - UI reset complete");
     }
 }

@@ -41,8 +41,34 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         if (this.websocket.State != WebSocketState.Open && this.websocket.State != WebSocketState.Connecting)
         {
             Debug.Log("NM Connect() -> await Connect()");
-            await this.websocket.Connect();
+            
+            // Use a timeout to prevent hanging, but check if connection was successful
+            var connectTask = this.websocket.Connect();
+            var timeoutTask = Task.Delay(5000); // 5 second timeout
+            
+            var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                Debug.LogError("Connection timeout after 5 seconds!");
+                
+                // Check if connection was actually established despite timeout
+                if (this.websocket.State == WebSocketState.Open)
+                {
+                    Debug.Log("Connection was established despite timeout - continuing...");
+                }
+                else
+                {
+                    Debug.LogError("Connection failed - websocket state: " + this.websocket.State);
+                    return;
+                }
+            }
+            
+            // Wait a bit for the connection to be fully established
+            await Task.Delay(200);
         }
+        
+        Debug.Log($"NM Connect() completed. State: {this.websocket.State}, IsConnected: {IsConnected}");
     }
 
 
@@ -82,6 +108,21 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         }
 #endif
     }
+    
+    /// <summary>
+    /// Safe way to update UI that won't crash during scene transitions
+    /// </summary>
+    private void SafeUpdateInfoText(string message)
+    {
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.UpdateInfoText(message);
+        }
+        else
+        {
+            Debug.LogWarning($"UIManager not available - Info text: {message}");
+        }
+    }
 
     public void SetupWebsocket()
     {
@@ -120,7 +161,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         Debug.Log("cl: join_random -> sv: lobby_randomly_joined");
                         var lj = JsonUtility.FromJson<ServerMessageLobbyJoinedRandomly>(messageString);
                         Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
-                        UIManager.Instance.UpdateInfoText(
+                        SafeUpdateInfoText(
                             lj.payload.queued
                                 ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})"
                                 : $"Opponent found! Starting…"
@@ -131,26 +172,45 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                     case "lobby_created":
                         var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
                         Debug.Log($"Created lobby: {msg.lobbyID}");
-                        UIManager.Instance.ShowCreatedLobbyPanel(msg.lobbyID);
+                        if (UIManager.Instance != null)
+                        {
+                            UIManager.Instance.ShowCreatedLobbyPanel(msg.lobbyID);
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"UIManager not available - Created lobby: {msg.lobbyID}");
+                        }
                         break;
                     
                     // Handle joining a specific lobby
                     case "lobby_joinedById":
                         var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
                         Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} by ID.");
-                        UIManager.Instance.UpdateInfoText($"Joined Lobby! Waiting for opponent...");
+                        SafeUpdateInfoText($"Joined Lobby! Waiting for opponent...");
                         break;
 
                     case "match_created":
                         var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
                         Debug.Log($"Player joined as: {matchMessage.payload.role}");
                         Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
+                        
+                        // Always raise the event - TitleSceneManager will handle scene transition
+                        // GameManager will be available after scene loads
                         RaiseMatchCreated(matchMessage.payload.role);
                         break;
 
                     case "grid_data":
                         Debug.Log("NM RaiseGridDataReady()");
-                        RaiseGridDataReady();
+                        // Wait for GameManager to be ready before processing grid data
+                        if (GameManager.Instance != null)
+                        {
+                            RaiseGridDataReady();
+                        }
+                        else
+                        {
+                            Debug.LogWarning("Received grid_data but GameManager not ready - deferring...");
+                            StartCoroutine(DeferGridDataUntilGameManagerReady());
+                        }
                         break;
 
                     case "resource_map":
@@ -174,8 +234,17 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                                 list.Add(new ResourceData { q = rd.q, r = rd.r, resource = parsed });
                             }
 
-                            RaiseGridDataReady();
-                            RaiseResourceMapReceived(list);
+                            // Wait for GameManager before processing resource map
+                            if (GameManager.Instance != null)
+                            {
+                                RaiseGridDataReady();
+                                RaiseResourceMapReceived(list);
+                            }
+                            else
+                            {
+                                Debug.LogWarning("Received resource_map but GameManager not ready - deferring...");
+                                StartCoroutine(DeferResourceMapUntilGameManagerReady(list));
+                            }
                             break;
                         }
 
@@ -365,10 +434,27 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         string reason = gameOverMsg.payload.reason;
 
                         Debug.LogWarning("--- RECEIVED 'game_over'. Displaying end panel. ---");
+                        Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, Reason={reason}");
+                        
+                        // CRITICAL: Store role immediately to prevent any interference
+                        Debug.Log($"[NetworkManager] GameManager.Instance: {GameManager.Instance}");
+                        Debug.Log($"[NetworkManager] GameManager.Instance.GetHashCode(): {GameManager.Instance.GetHashCode()}");
+                        
+                        PlayerRole myCurrentRole = GameManager.Instance.MyRole;
+                        string myCurrentRoleString = myCurrentRole.ToString();
+                        
+                        Debug.Log($"[NetworkManager] My Role: {myCurrentRole}, My Role String: '{myCurrentRoleString}'");
+                        Debug.Log($"[NetworkManager] Winner String: '{winner}'");
+                        
+                        // IMPORTANT: Determine winner using stored values, not live GameManager state
+                        bool amIWinner = myCurrentRoleString == winner;
+                        Debug.Log($"[NetworkManager] Winner determination (using stored role): Am I Winner? {amIWinner}");
 
                         GameManager.Instance.EndGame();
-
-                        bool amIWinner = GameManager.Instance.MyRole.ToString() == winner;
+                        
+                        // Double-check what role is after EndGame (for debugging)
+                        Debug.Log($"[NetworkManager] Role after EndGame: {GameManager.Instance.MyRole}");
+                        
                         UIManager.Instance.ShowEndGamePanel(amIWinner);
                         break;
 
@@ -388,10 +474,17 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         InteractionManager.Instance.UpdateGoldAmount(roundPayload.resources.gold);
 
                         // Restore purchased workers for King from server data
-                        if (GameManager.Instance.MyRole == PlayerRole.King && roundPayload.workers > 0)
+                        // IMPORTANT: Only restore workers if this is NOT round 1 (fresh game should start with 0 workers)
+                        if (GameManager.Instance.MyRole == PlayerRole.King && roundPayload.workers > 0 && roundPayload.roundNumber > 1)
                         {
                             InteractionManager.Instance.RestorePurchasedWorkers(roundPayload.workers, roundPayload.wagonWorkers);
                             Debug.Log($"King's workers restored: {roundPayload.workers} total ({roundPayload.wagonWorkers} wagons)");
+                        }
+                        else if (GameManager.Instance.MyRole == PlayerRole.King && roundPayload.roundNumber == 1)
+                        {
+                            // Ensure fresh start for new game (round 1)
+                            InteractionManager.Instance.RestorePurchasedWorkers(0, 0);
+                            Debug.Log($"New game detected (round 1) - King starting with 0 workers");
                         }
 
                         // Update bandit button text if bandit player
@@ -416,7 +509,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
                     case "info":
                         var info = JsonUtility.FromJson<ServerMessageStringPayload>(messageString);
-                        UIManager.Instance.UpdateInfoText(info.payload);
+                        SafeUpdateInfoText(info.payload);
                         Debug.Log($"Info-Message from Server: {info.payload}");
                         break;
 
@@ -478,6 +571,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     /// </summary>
     public void JoinRandomLobby()
     {
+        Debug.Log($"JoinRandomLobby() called. IsConnected: {IsConnected}, WebSocket State: {websocket?.State}");
         if (IsConnected)
         {
             Debug.Log("NM -> Sending 'join_random'");
@@ -485,7 +579,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         }
         else
         {
-            Debug.LogError("Cannot join random lobby, not connected!");
+            Debug.LogError($"Cannot join random lobby, not connected! WebSocket State: {websocket?.State}");
         }
     }
 
@@ -534,5 +628,50 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
         Debug.Log($"[NM] DelayedAnimationCleanup: Cleaning up animation for {GameManager.Instance?.MyRole}");
         InteractionManager.Instance.CleanupAfterRoundAnimation();
+    }
+    
+    // Coroutine to wait for GameManager to be ready before processing grid data
+    private System.Collections.IEnumerator DeferGridDataUntilGameManagerReady()
+    {
+        int attempts = 0;
+        while (GameManager.Instance == null && attempts < 50) // Max 5 seconds
+        {
+            yield return new WaitForSeconds(0.1f);
+            attempts++;
+            Debug.Log($"Waiting for GameManager... Attempt {attempts}");
+        }
+        
+        if (GameManager.Instance != null)
+        {
+            Debug.Log("GameManager ready - processing deferred grid_data");
+            RaiseGridDataReady();
+        }
+        else
+        {
+            Debug.LogError("GameManager never became ready - grid_data processing failed!");
+        }
+    }
+    
+    // Coroutine to wait for GameManager to be ready before processing resource map
+    private System.Collections.IEnumerator DeferResourceMapUntilGameManagerReady(List<ResourceData> resourceData)
+    {
+        int attempts = 0;
+        while (GameManager.Instance == null && attempts < 50) // Max 5 seconds
+        {
+            yield return new WaitForSeconds(0.1f);
+            attempts++;
+            Debug.Log($"Waiting for GameManager for resource_map... Attempt {attempts}");
+        }
+        
+        if (GameManager.Instance != null)
+        {
+            Debug.Log("GameManager ready - processing deferred resource_map");
+            RaiseGridDataReady();
+            RaiseResourceMapReceived(resourceData);
+        }
+        else
+        {
+            Debug.LogError("GameManager never became ready - resource_map processing failed!");
+        }
     }
 }

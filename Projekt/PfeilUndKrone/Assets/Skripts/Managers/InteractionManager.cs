@@ -99,6 +99,16 @@ public class InteractionManager : Singleton<InteractionManager>
 
     void Start()
     {
+        Debug.Log($"[InteractionManager] Start() - net is assigned: {net != null}");
+        
+        // If net is not assigned, try to get NetworkManager.Instance
+        if (net == null)
+        {
+            Debug.Log("[InteractionManager] net is null, trying to get NetworkManager.Instance");
+            net = NetworkManager.Instance;
+            Debug.Log($"[InteractionManager] NetworkManager.Instance assigned: {net != null}");
+        }
+        
         centralVertices = Enum.GetValues(typeof(VertexDirection))
             .Cast<VertexDirection>()
             .Select(d => new HexVertex(new Hex(0, 0), d))
@@ -605,11 +615,21 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void BuyWorker()
     {
+        Debug.Log($"[InteractionManager] BuyWorker() called - net is null: {net == null}");
+        
         if (!CanBuyWorker())
         {
             Debug.LogError($"❌ Error: Cannot buy worker! Need {workerGrainCost} grain and {workerWoodCost} wood, have {currentGrain} grain and {currentWood} wood");
             UIManager.Instance.UpdateInfoText($"Error: Need {workerGrainCost} grain and {workerWoodCost} wood, have {currentGrain} grain and {currentWood} wood");
             return;
+        }
+
+        // If net is still null, try to get it again
+        if (net == null)
+        {
+            Debug.LogWarning("[InteractionManager] net is null in BuyWorker, trying to get NetworkManager.Instance");
+            net = NetworkManager.Instance;
+            Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
         }
 
         // Send buy request to server
@@ -649,6 +669,9 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.LogError("Cannot upgrade worker to wagon - insufficient resources or no available workers");
             return;
         }
+
+        // Ensure net is available
+        if (net == null) net = NetworkManager.Instance;
 
         var payload = new { woodCost = wagonWoodCost };
         net.Send("upgrade_worker_wagon", payload);
@@ -763,11 +786,21 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void BuyAmbush()
     {
+        Debug.Log($"[InteractionManager] BuyAmbush() called - net is null: {net == null}");
+        
         if (!CanBuyAmbush())
         {
             Debug.LogError($"❌ Error: Cannot buy ambush! Need {ambushCost} gold, have {currentGold}");
             UIManager.Instance.UpdateInfoText($"Error: Need {ambushCost} gold, have {currentGold}");
             return;
+        }
+
+        // If net is still null, try to get it again
+        if (net == null)
+        {
+            Debug.LogWarning("[InteractionManager] net is null in BuyAmbush, trying to get NetworkManager.Instance");
+            net = NetworkManager.Instance;
+            Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
         }
 
         // Send buy request to server
@@ -941,6 +974,9 @@ public class InteractionManager : Singleton<InteractionManager>
         }).ToArray();
 
         var pathData = new PlaceWorkersPayload { paths = serializablePaths };
+
+        // Ensure net is available
+        if (net == null) net = NetworkManager.Instance;
 
         Debug.Log($"Sending {completedPaths.Count} paths to server");
         net.Send("place_workers", pathData);
@@ -1289,6 +1325,9 @@ public class InteractionManager : Singleton<InteractionManager>
         var serializableAmbushes = placedAmbushes.Select(a => new SerializableAmbushEdge(a)).ToArray();
         var payload = new PlaceAmbushesPayload { ambushes = serializableAmbushes };
 
+        // Ensure net is available
+        if (net == null) net = NetworkManager.Instance;
+
         try
         {
             net.Send("place_ambushes", payload);
@@ -1462,7 +1501,13 @@ public class InteractionManager : Singleton<InteractionManager>
         selectedResourceField = default;
         pathComplete = false;
         isMoving = false;
-        workerObj?.SetActive(false);
+        
+        // Check if workerObj still exists before trying to access it
+        if (workerObj != null && workerObj)
+        {
+            workerObj.SetActive(false);
+        }
+        
         ambushStart = default;
 
         // Clean up all worker objects
@@ -1601,5 +1646,65 @@ public class InteractionManager : Singleton<InteractionManager>
                         (a.ToWorld(gridGen.hexRadius) + b.ToWorld(gridGen.hexRadius)) / 2f) < 0.01f)
                         return dir;
         return HexDirection.Right;
+    }
+    
+    /// <summary>
+    /// Complete reset for a new game session
+    /// </summary>
+    public void ResetForNewGame()
+    {
+        Debug.Log("[InteractionManager] ResetForNewGame() - Resetting interaction state");
+        
+        // Reset interaction state
+        pathCreationState = PathCreationState.NotCreating;
+        completedPaths.Clear();
+        currentPathIndex = -1;
+        
+        // Reset resources
+        currentGold = 0;
+        currentWood = 0;
+        currentGrain = 0;
+        
+        // Reset workers
+        ownedWorkers = 0;
+        usedWorkers = 0;
+        ownedWagonWorkers = 0;
+        usedWagonWorkers = 0;
+        
+        // Reset ambush state
+        purchasedAmbushes = 0;
+        isInAmbushPlacementMode = false;
+        
+        // Reset path creation state
+        pathComplete = false;
+        currentPathUseWagonWorker = false;
+        selectedResourceField = default(Hex);
+        
+        // Clear visual elements
+        ForceCompleteReset();
+        
+        // Clear collections
+        resourceFieldWorkers.Clear();
+        placedAmbushes.Clear();
+        ambushOrbObjects.Clear();
+        animationAmbushOrbObjects.Clear();
+        ambushEdges.Clear();
+        selectedVertices.Clear();
+        validNextVertices.Clear();
+        workerPathSteps.Clear();
+        
+        // Reset movement state
+        isMoving = false;
+        pathStep = 0;
+        serverPathWorld?.Clear();
+        
+        // Destroy worker object
+        if (workerObj != null && workerObj)
+        {
+            Destroy(workerObj);
+            workerObj = null;
+        }
+        
+        Debug.Log("[InteractionManager] ResetForNewGame() - Reset complete");
     }
 }

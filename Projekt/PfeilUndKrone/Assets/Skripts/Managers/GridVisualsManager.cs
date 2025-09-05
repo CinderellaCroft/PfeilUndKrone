@@ -59,13 +59,24 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
 
     public void Bind(MainBindings b)
     {
+        Debug.Log("[GridVisualsManager] Binding references from MainBindings");
+        Debug.Log($"[GridVisualsManager] MainBindings.hexFieldContainer is: {(b.hexFieldContainer != null ? b.hexFieldContainer.name : "NULL")}");
         hexFieldContainer = b.hexFieldContainer;
 
         // If these were unassigned because the singleton was created in Title,
         // take them from the scene bindings:
         if (KingCastlePrefab == null) KingCastlePrefab = b.KingCastlePrefab;
         if (KingMoatPrefab == null) KingMoatPrefab = b.KingMoatPrefab;
-        if (resourcePrefabs == null || resourcePrefabs.Count == 0) resourcePrefabs = b.resourcePrefabs;
+        if (resourcePrefabs == null || resourcePrefabs.Count == 0) 
+        {
+            resourcePrefabs = b.resourcePrefabs;
+            // Rebuild resource map when prefabs are updated
+            if (resourcePrefabs != null && resourcePrefabs.Count > 0)
+            {
+                resourceMap = resourcePrefabs.ToDictionary(e => e.type, e => e.prefab);
+                Debug.Log($"[GridVisualsManager] Rebuilt resourceMap with {resourceMap.Count} entries");
+            }
+        }
 
         if (BanditCastlePrefab == null) BanditCastlePrefab = b.BanditCastlePrefab;
         if (BanditMoatPrefab == null) BanditMoatPrefab = b.BanditMoatPrefab;
@@ -75,6 +86,8 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         if (desertPrefab == null) desertPrefab = b.desertPrefab;
         if (vertexMarkerPrefab == null) vertexMarkerPrefab = b.vertexMarkerPrefab;
         if (edgeMarkerPrefab == null) edgeMarkerPrefab = b.edgeMarkerPrefab;
+        
+        Debug.Log("[GridVisualsManager] Binding complete - all references should now be available");
     }
 
     public void InitializeVisuals(Dictionary<Hex, FieldType> map)
@@ -82,7 +95,40 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         ClearPrevious();
 
         if (gridGenerator == null) { Debug.LogError("GridVisualsManager: gridGenerator NULL"); return; }
-        if (hexFieldContainer == null) { Debug.LogError("GridVisualsManager: hexFieldContainer NULL"); return; }
+        
+        // Always try to rebind from MainBindings for multi-game session support
+        var mainBindings = FindObjectOfType<MainBindings>();
+        if (mainBindings != null)
+        {
+            Debug.Log("GridVisualsManager: Found MainBindings - rebinding references for new game session");
+            Bind(mainBindings);
+        }
+        
+        if (hexFieldContainer == null) 
+        { 
+            Debug.LogError("GridVisualsManager: hexFieldContainer still NULL after binding attempt - attempting fallback search");
+            
+            // Fallback: try to find hexFieldContainer by common names
+            var candidates = new string[] { "HexFieldContainer", "HexContainer", "GridContainer", "FieldContainer" };
+            foreach (var name in candidates)
+            {
+                var found = GameObject.Find(name);
+                if (found != null)
+                {
+                    hexFieldContainer = found.transform;
+                    Debug.Log($"GridVisualsManager: Found hexFieldContainer by name search: {name}");
+                    break;
+                }
+            }
+            
+            // Last resort: create a new container
+            if (hexFieldContainer == null)
+            {
+                Debug.LogWarning("GridVisualsManager: Creating new HexFieldContainer as fallback");
+                var go = new GameObject("HexFieldContainer");
+                hexFieldContainer = go.transform;
+            }
+        }
         if (desertPrefab == null) { Debug.LogError("GridVisualsManager: desertPrefab NULL"); return; }
         if (resourceMap == null) { Debug.LogError("GridVisualsManager: prefab map (resourceMap) NULL"); return; }
 
@@ -97,6 +143,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         foreach (var hex in gridGenerator.Model.AllHexes)
         {
             var role = GameManager.Instance.MyRole;
+            Debug.Log($"[GridVisualsManager] InitializeVisuals - My role is: {role}");
 
             FieldType ft = default;
             bool hasField = map != null && map.TryGetValue(hex, out ft);
@@ -143,6 +190,22 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         hexObjects.Clear();
         foreach (var vm in FindObjectsByType<VertexMarker>(FindObjectsSortMode.None)) Destroy(vm.gameObject);
         foreach (var em in FindObjectsByType<EdgeMarker>(FindObjectsSortMode.None)) Destroy(em.gameObject);
+        hexVertexObjects.Clear();
+        hexEdgeObjects.Clear();
+    }
+    
+    /// <summary>
+    /// Complete reset for a new game session
+    /// </summary>
+    public void ResetForNewGame()
+    {
+        Debug.Log("[GridVisualsManager] ResetForNewGame() - Clearing all visual elements");
+        ClearPrevious();
+        
+        // Clear references that might be stale
+        hexFieldContainer = null;
+        
+        Debug.Log("[GridVisualsManager] ResetForNewGame() - Reset complete");
     }
 
     private static bool IsCastleField(FieldType f) => f == FieldType.Castle;
@@ -177,11 +240,13 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             {
                 prefab = role == PlayerRole.King ? KingCastlePrefab : BanditCastlePrefab;
                 rotation = role == PlayerRole.King ? Quaternion.identity : Quaternion.Euler(0f, 120f, 0f);
+                Debug.Log($"[GridVisualsManager] Castle field - Role: {role}, Using prefab: {prefab?.name ?? "NULL"}");
             }
             else if (IsMoatField(ft))
             {
                 prefab = role == PlayerRole.King ? KingMoatPrefab : BanditMoatPrefab;
                 rotation = GetMoatRotation(hex, hexRadius);
+                Debug.Log($"[GridVisualsManager] Moat field - Role: {role}, Using prefab: {prefab?.name ?? "NULL"}");
             }
             else if (TryFieldAsResource(ft, out var rt)
                          && resourceMap != null
