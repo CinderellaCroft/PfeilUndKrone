@@ -11,7 +11,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
     private int PORT = 8080;
-    private String IP = "localhost";//   "localhost"     "172.104.147.34"
+    private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
@@ -41,17 +41,17 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         if (this.websocket.State != WebSocketState.Open && this.websocket.State != WebSocketState.Connecting)
         {
             Debug.Log("NM Connect() -> await Connect()");
-            
+
             // Use a timeout to prevent hanging, but check if connection was successful
             var connectTask = this.websocket.Connect();
             var timeoutTask = Task.Delay(5000); // 5 second timeout
-            
+
             var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-            
+
             if (completedTask == timeoutTask)
             {
                 Debug.LogError("Connection timeout after 5 seconds!");
-                
+
                 // Check if connection was actually established despite timeout
                 if (this.websocket.State == WebSocketState.Open)
                 {
@@ -63,11 +63,11 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                     return;
                 }
             }
-            
+
             // Wait a bit for the connection to be fully established
             await Task.Delay(200);
         }
-        
+
         Debug.Log($"NM Connect() completed. State: {this.websocket.State}, IsConnected: {IsConnected}");
     }
 
@@ -108,7 +108,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         }
 #endif
     }
-    
+
     /// <summary>
     /// Safe way to update UI that won't crash during scene transitions
     /// </summary>
@@ -181,7 +181,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                             Debug.LogWarning($"UIManager not available - Created lobby: {msg.lobbyID}");
                         }
                         break;
-                    
+
                     // Handle joining a specific lobby
                     case "lobby_joinedById":
                         var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
@@ -193,7 +193,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         var matchMessage = JsonUtility.FromJson<ServerMessageMatchCreated>(messageString);
                         Debug.Log($"Player joined as: {matchMessage.payload.role}");
                         Debug.Log(GameManager.Instance == null ? "GameManager is not set up!" : "GameManager is ready.");
-                        
+
                         // Always raise the event - TitleSceneManager will handle scene transition
                         // GameManager will be available after scene loads
                         RaiseMatchCreated(matchMessage.payload.role);
@@ -280,9 +280,9 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                     case "worker_approved":
                         Debug.Log("Worker purchase approved by server!");
                         UIManager.Instance.UpdateInfoText("Worker purchased successfully!");
-                        
+
                         InteractionManager.Instance.OnWorkerPurchaseApproved();
-                        
+
                         if (GameManager.Instance.MyRole == PlayerRole.King)
                         {
                             UIManager.Instance.UpdateKingWorkerBuyButtonText();
@@ -302,10 +302,10 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                     case "wagon_upgrade_approved":
                         Debug.Log("Wagon upgrade approved by server!");
                         UIManager.Instance.UpdateInfoText("Worker upgraded to wagon successfully!");
-                        
+
                         var wagonApprovedMsg = JsonUtility.FromJson<ServerMessageWagonUpgradeApproved>(messageString);
                         InteractionManager.Instance.OnWagonUpgradeApproved(wagonApprovedMsg.payload.wagonWorkers, wagonApprovedMsg.payload.workerCount);
-                        
+
                         if (GameManager.Instance.MyRole == PlayerRole.King)
                         {
                             UIManager.Instance.UpdateKingWagonUpgradeButtonText();
@@ -435,26 +435,26 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
                         Debug.LogWarning("--- RECEIVED 'game_over'. Displaying end panel. ---");
                         Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, Reason={reason}");
-                        
+
                         // CRITICAL: Store role immediately to prevent any interference
                         Debug.Log($"[NetworkManager] GameManager.Instance: {GameManager.Instance}");
                         Debug.Log($"[NetworkManager] GameManager.Instance.GetHashCode(): {GameManager.Instance.GetHashCode()}");
-                        
+
                         PlayerRole myCurrentRole = GameManager.Instance.MyRole;
                         string myCurrentRoleString = myCurrentRole.ToString();
-                        
+
                         Debug.Log($"[NetworkManager] My Role: {myCurrentRole}, My Role String: '{myCurrentRoleString}'");
                         Debug.Log($"[NetworkManager] Winner String: '{winner}'");
-                        
+
                         // IMPORTANT: Determine winner using stored values, not live GameManager state
                         bool amIWinner = myCurrentRoleString == winner;
                         Debug.Log($"[NetworkManager] Winner determination (using stored role): Am I Winner? {amIWinner}");
 
                         GameManager.Instance.EndGame();
-                        
+
                         // Double-check what role is after EndGame (for debugging)
                         Debug.Log($"[NetworkManager] Role after EndGame: {GameManager.Instance.MyRole}");
-                        
+
                         UIManager.Instance.ShowEndGamePanel(amIWinner);
                         break;
 
@@ -492,7 +492,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         {
                             UIManager.Instance.UpdateBanditAmbushButtonText();
                         }
-                        
+
                         // Update king button texts if king player
                         if (GameManager.Instance.MyRole == PlayerRole.King)
                         {
@@ -629,7 +629,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         Debug.Log($"[NM] DelayedAnimationCleanup: Cleaning up animation for {GameManager.Instance?.MyRole}");
         InteractionManager.Instance.CleanupAfterRoundAnimation();
     }
-    
+
     // Coroutine to wait for GameManager to be ready before processing grid data
     private System.Collections.IEnumerator DeferGridDataUntilGameManagerReady()
     {
@@ -640,7 +640,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             attempts++;
             Debug.Log($"Waiting for GameManager... Attempt {attempts}");
         }
-        
+
         if (GameManager.Instance != null)
         {
             Debug.Log("GameManager ready - processing deferred grid_data");
@@ -651,7 +651,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             Debug.LogError("GameManager never became ready - grid_data processing failed!");
         }
     }
-    
+
     // Coroutine to wait for GameManager to be ready before processing resource map
     private System.Collections.IEnumerator DeferResourceMapUntilGameManagerReady(List<ResourceData> resourceData)
     {
@@ -662,7 +662,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             attempts++;
             Debug.Log($"Waiting for GameManager for resource_map... Attempt {attempts}");
         }
-        
+
         if (GameManager.Instance != null)
         {
             Debug.Log("GameManager ready - processing deferred resource_map");
