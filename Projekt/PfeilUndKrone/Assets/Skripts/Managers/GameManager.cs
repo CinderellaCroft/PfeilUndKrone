@@ -313,7 +313,7 @@ public class GameManager : Singleton<GameManager>
 
         Debug.Log("GameManager.StartKingTurn is now setting UI visibility.");
 
-        UIManager.Instance.UpdateTurnStatus("King's Turn: Select Path");
+        UIManager.Instance.UpdateTurnStatus("Your Turn");
         interactionManager.EnableInteraction(PlayerRole.King);
 
         // Update button visibility based on turn and role
@@ -324,7 +324,7 @@ public class GameManager : Singleton<GameManager>
     {
         if (IsGameOver) return;
         CurrentTurn = GameTurn.BanditPlanning;
-        UIManager.Instance.UpdateTurnStatus("Bandit's Turn: Place Ambushes");
+        UIManager.Instance.UpdateTurnStatus("Your Turn");
         interactionManager.EnableInteraction(PlayerRole.Bandit);
 
         // Update button visibility based on turn and role
@@ -334,7 +334,7 @@ public class GameManager : Singleton<GameManager>
     public void StartExecutionPhase(List<PathData> kingPaths, List<AmbushEdge> banditAmbushes)
     {
         CurrentTurn = GameTurn.Executing;
-        UIManager.Instance.UpdateTurnStatus("Executing Round...");
+        UIManager.Instance.UpdateTurnStatus("Executing...");
 
         // Hide all buttons during execution
         UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);

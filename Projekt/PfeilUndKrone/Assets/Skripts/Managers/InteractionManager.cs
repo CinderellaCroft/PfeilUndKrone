@@ -69,16 +69,16 @@ public class InteractionManager : Singleton<InteractionManager>
 
     // Bandit resources and ambush buying system
     private int currentGold = 20; // Will be updated from server
-    private const int ambushCost = 5;
+    private const int ambushCost = 12;
     private int purchasedAmbushes = 0; // How many ambushes bandit has purchased
     private bool isInAmbushPlacementMode = false;
 
     // King resources and worker buying system
     private int currentGrain = 0; // Will be updated from server
     private int currentWood = 0; // Will be updated from server
-    private const int workerGrainCost = 30;
-    private const int workerWoodCost = 10;
-    private const int wagonWoodCost = 50;
+    private const int workerGrainCost = 20;
+    private const int workerWoodCost = 8;
+    private const int wagonWoodCost = 25;
     private int ownedWorkers = 0;
     private int usedWorkers = 0;
     private int ownedWagonWorkers = 0;
@@ -536,18 +536,18 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             case PathCreationState.NotCreating:
                 if (GetAvailableWorkerCount() <= 0)
-                    return "Keine Worker verfügbar";
-                return "Pfad erstellen";
+                    return "No Workers";
+                return "Create Path";
             case PathCreationState.SelectingResourceField:
-                return "Ressourcenfeld wählen";
+                return "Select Field";
             case PathCreationState.SelectingStartVertex:
-                return "Startecke wählen";
+                return "Select Corner";
             case PathCreationState.Creating:
-                return "Pfad erstellen...";
+                return "Creating...";
             case PathCreationState.ReadyToConfirm:
-                return "Pfad erstellt";
+                return "Ready";
             default:
-                return "Pfad erstellen";
+                return "Create Path";
         }
     }
 
@@ -605,11 +605,11 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         if (CanBuyWorker())
         {
-            return $"Worker kaufen ({workerGrainCost} Getreide, {workerWoodCost} Holz)";
+            return "Buy Worker";
         }
         else
         {
-            return $"Nicht genug Ressourcen ({workerGrainCost} Getreide, {workerWoodCost} Holz benötigt)";
+            return "Need Resources";
         }
     }
 
@@ -767,20 +767,26 @@ public class InteractionManager : Singleton<InteractionManager>
 
     // === AMBUSH BUYING SYSTEM FOR BANDIT ===
 
+    private int GetHighestBanditResource()
+    {
+        return Mathf.Max(currentWood, currentGrain);
+    }
+
     public bool CanBuyAmbush()
     {
-        return currentGold >= ambushCost && currentMode == InteractionMode.AmbushPlacement;
+        return GetHighestBanditResource() >= ambushCost && currentMode == InteractionMode.AmbushPlacement;
     }
 
     public string GetAmbushBuyButtonText()
     {
         if (CanBuyAmbush())
         {
-            return $"Ambush kaufen ({ambushCost} Gold)";
+            return "Buy Ambush";
         }
         else
         {
-            return $"Nicht genug Gold ({ambushCost} Gold benötigt)";
+            string resourceType = currentWood >= currentGrain ? "Wood" : "Grain";
+            return $"Need {resourceType}";
         }
     }
 
@@ -788,10 +794,17 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         Debug.Log($"[InteractionManager] BuyAmbush() called - net is null: {net == null}");
         
+        // Determine which resource to use (declare once at top of method)
+        bool useWood = currentWood >= currentGrain;
+        string resourceType = useWood ? "wood" : "grain";
+        int currentAmount = useWood ? currentWood : currentGrain;
+        
+        Debug.Log($"[BuyAmbush] Resources: Wood={currentWood}, Grain={currentGrain} → Using {resourceType} (amount={currentAmount})");
+        
         if (!CanBuyAmbush())
         {
-            Debug.LogError($"❌ Error: Cannot buy ambush! Need {ambushCost} gold, have {currentGold}");
-            UIManager.Instance.UpdateInfoText($"Error: Need {ambushCost} gold, have {currentGold}");
+            Debug.LogError($"❌ Error: Cannot buy ambush! Need {ambushCost} {resourceType}, have {currentAmount}");
+            UIManager.Instance.UpdateInfoText($"Error: Need {ambushCost} {resourceType}, have {currentAmount}");
             return;
         }
 
@@ -803,11 +816,11 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
         }
 
-        // Send buy request to server
-        var payload = new { cost = ambushCost };
+        // Send request to server
+        var payload = new { cost = ambushCost, resourceType = resourceType };
         net.Send("buy_ambush", payload);
 
-        Debug.Log($"Ambush purchase request sent (Cost: {ambushCost} gold)");
+        Debug.Log($"Ambush purchase request sent (Cost: {ambushCost} {resourceType})");
 
         // Server will respond with ambush_approved or ambush_denied
         // On approval, server will update our gold and we can place the ambush
@@ -914,7 +927,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         if (pathCreationState != PathCreationState.Creating)
         {
-            Debug.LogError("❌ Error: Not currently creating a path! Click 'Pfad erstellen' first.");
+            Debug.LogError("❌ Error: Not currently creating a path! Click 'Create Path' first.");
             return;
         }
 
