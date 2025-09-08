@@ -94,7 +94,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
     private void OnApplicationQuit()
     {
-        Disconnect();
+        _ = Disconnect();
     }
 
     void Update()
