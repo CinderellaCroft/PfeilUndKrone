@@ -67,7 +67,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         // take them from the scene bindings:
         if (KingCastlePrefab == null) KingCastlePrefab = b.KingCastlePrefab;
         if (KingMoatPrefab == null) KingMoatPrefab = b.KingMoatPrefab;
-        if (resourcePrefabs == null || resourcePrefabs.Count == 0) 
+        if (resourcePrefabs == null || resourcePrefabs.Count == 0)
         {
             resourcePrefabs = b.resourcePrefabs;
             // Rebuild resource map when prefabs are updated
@@ -86,7 +86,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         if (desertPrefab == null) desertPrefab = b.desertPrefab;
         if (vertexMarkerPrefab == null) vertexMarkerPrefab = b.vertexMarkerPrefab;
         if (edgeMarkerPrefab == null) edgeMarkerPrefab = b.edgeMarkerPrefab;
-        
+
         Debug.Log("[GridVisualsManager] Binding complete - all references should now be available");
     }
 
@@ -95,19 +95,19 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         ClearPrevious();
 
         if (gridGenerator == null) { Debug.LogError("GridVisualsManager: gridGenerator NULL"); return; }
-        
+
         // Always try to rebind from MainBindings for multi-game session support
-        var mainBindings = FindObjectOfType<MainBindings>();
+        var mainBindings = FindFirstObjectByType<MainBindings>();
         if (mainBindings != null)
         {
             Debug.Log("GridVisualsManager: Found MainBindings - rebinding references for new game session");
             Bind(mainBindings);
         }
-        
-        if (hexFieldContainer == null) 
-        { 
+
+        if (hexFieldContainer == null)
+        {
             Debug.LogError("GridVisualsManager: hexFieldContainer still NULL after binding attempt - attempting fallback search");
-            
+
             // Fallback: try to find hexFieldContainer by common names
             var candidates = new string[] { "HexFieldContainer", "HexContainer", "GridContainer", "FieldContainer" };
             foreach (var name in candidates)
@@ -120,7 +120,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
                     break;
                 }
             }
-            
+
             // Last resort: create a new container
             if (hexFieldContainer == null)
             {
@@ -193,7 +193,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         hexVertexObjects.Clear();
         hexEdgeObjects.Clear();
     }
-    
+
     /// <summary>
     /// Complete reset for a new game session
     /// </summary>
@@ -201,10 +201,10 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     {
         Debug.Log("[GridVisualsManager] ResetForNewGame() - Clearing all visual elements");
         ClearPrevious();
-        
+
         // Clear references that might be stale
         hexFieldContainer = null;
-        
+
         Debug.Log("[GridVisualsManager] ResetForNewGame() - Reset complete");
     }
 
@@ -293,5 +293,16 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         // Finale Y-Rotation inkl. optionalem Offset fürs Prefab
         float y = sector * 60f + moatRotationOffsetY;
         return Quaternion.Euler(0f, y, 0f);
+    }
+
+    public void SetEdgeVisible(HexEdge edge, bool visible)
+    {
+        if (hexEdgeObjects.TryGetValue(edge, out var go)) go.SetActive(visible);
+        else Debug.LogWarning($"[GVM] Edge GameObject not found for {edge}");
+    }
+
+    public void HideAllEdges()
+    {
+        foreach (var go in hexEdgeObjects.Values) go.SetActive(false);
     }
 }

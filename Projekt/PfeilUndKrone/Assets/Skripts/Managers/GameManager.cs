@@ -27,7 +27,7 @@ public class GameManager : Singleton<GameManager>
     public GameTurn CurrentTurn { get; private set; } = GameTurn.Setup;
 
     private bool subscribed = false;
-    
+
     protected override void Awake()
     {
         Debug.Log("[GameManager] Awake() START");
@@ -56,12 +56,12 @@ public class GameManager : Singleton<GameManager>
                 Debug.Log("GameManager: Using existing NetworkManager instance");
                 networkService = NetworkManager.Instance;
             }
-            
+
             networkService.OnRoleAssigned += SetRole;
             networkService.OnGridDataReady += OnGridReady;
             networkService.OnResourceMapReceived += OnResourceMap;
             SceneManager.sceneLoaded += OnSceneLoaded;
-            
+
             // Check if role was already assigned before we subscribed
             // This happens when transitioning from title to main scene
             Debug.Log($"[GameManager] Checking if role already assigned. Current role: {MyRole}");
@@ -84,7 +84,7 @@ public class GameManager : Singleton<GameManager>
             {
                 Debug.Log($"[GameManager] Role already set to: {MyRole} - not changing");
             }
-            
+
             // Only connect if not already connected
             if (!networkService.IsConnected)
             {
@@ -95,11 +95,11 @@ public class GameManager : Singleton<GameManager>
             {
                 Debug.Log("GameManager: NetworkService already connected");
             }
-            
+
             subscribed = true;
         }
     }
-    
+
     void Start()
     {
         Debug.Log("[GameManager] Start() called");
@@ -132,21 +132,21 @@ public class GameManager : Singleton<GameManager>
         }
     }
 
-    public async void EndGame()
+    public void EndGame()
     {
         Debug.Log($"[GameManager] EndGame() CALLED - Current Role: {MyRole}");
         Debug.LogWarning("[GameManager] STACK TRACE for EndGame call:");
         Debug.LogWarning(System.Environment.StackTrace);
-        
+
         _ = this.networkService.Disconnect();
         IsGameOver = true;
-        
+
         // Perform comprehensive cleanup
         ResetGameState();
-        
+
         Debug.Log("[GameManager] EndGame() - Complete game state reset for next game");
     }
-    
+
     /// <summary>
     /// Comprehensive reset of all game state for a fresh new game
     /// </summary>
@@ -155,22 +155,22 @@ public class GameManager : Singleton<GameManager>
         Debug.Log($"[GameManager] ResetGameState() CALLED - Current Role: {MyRole}");
         Debug.LogWarning("[GameManager] STACK TRACE for ResetGameState call:");
         Debug.LogWarning(System.Environment.StackTrace);
-        
+
         // Reset core game state
         MyRole = PlayerRole.None;
         CurrentTurn = GameTurn.Setup;
         currentRoundNumber = 0;
         IsGameOver = false;
         resourceMap?.Clear();
-        
+
         // Reset managers
         if (visualsManager != null) visualsManager.ResetForNewGame();
         if (interactionManager != null) interactionManager.ResetForNewGame();
         if (UIManager.Instance != null) UIManager.Instance.ResetForNewGame();
-        
+
         Debug.Log("[GameManager] ResetGameState() - All systems reset for new game");
     }
-    
+
     /// <summary>
     /// Reset only game state without touching UI (for title scene cleanup)
     /// </summary>
@@ -179,18 +179,18 @@ public class GameManager : Singleton<GameManager>
         Debug.Log($"[GameManager] ResetGameStateOnly() CALLED - Current Role: {MyRole}");
         Debug.LogWarning("[GameManager] STACK TRACE for ResetGameStateOnly call:");
         Debug.LogWarning(System.Environment.StackTrace);
-        
+
         // Reset core game state
         MyRole = PlayerRole.None;
         CurrentTurn = GameTurn.Setup;
         currentRoundNumber = 0;
         IsGameOver = false;
         resourceMap?.Clear();
-        
+
         // Reset non-UI managers only
         if (visualsManager != null) visualsManager.ResetForNewGame();
         if (interactionManager != null) interactionManager.ResetForNewGame();
-        
+
         Debug.Log("[GameManager] ResetGameStateOnly() - Core systems reset complete");
     }
 
@@ -200,37 +200,37 @@ public class GameManager : Singleton<GameManager>
         Debug.Log($"[GameManager] SetRole - this.GetHashCode(): {this.GetHashCode()}");
         Debug.Log($"[GameManager] SetRole - Instance.GetHashCode(): {Instance.GetHashCode()}");
         Debug.Log($"[GameManager] SetRole - Are they the same instance? {this == Instance}");
-        
+
         if (roleName == PlayerRole.King.ToString()) MyRole = PlayerRole.King;
         else if (roleName == PlayerRole.Bandit.ToString()) MyRole = PlayerRole.Bandit;
         else Debug.Log($"Unknown role: '{roleName}', role remains: {MyRole}");
 
         Debug.Log($"[GameManager] Role set to: {MyRole} - Initializing fresh game session");
-        
+
         // Perform fresh initialization when role is assigned (start of new game)
         InitializeFreshGame();
-        
+
         UIManager.Instance.UpdateRoleText(MyRole);
     }
-    
+
     /// <summary>
     /// Initialize a completely fresh game session
     /// </summary>
     private void InitializeFreshGame()
     {
         Debug.Log("[GameManager] InitializeFreshGame() - Setting up fresh game state");
-        
+
         // Ensure we start with clean state
         IsGameOver = false;
         CurrentTurn = GameTurn.Setup;
         currentRoundNumber = 0;
-        
+
         // Clear any existing resource map
         resourceMap?.Clear();
-        
+
         // Reset subscriptions flag to allow re-subscription
         subscribed = false;
-        
+
         Debug.Log("[GameManager] InitializeFreshGame() - Fresh game state ready");
     }
 
@@ -266,31 +266,31 @@ public class GameManager : Singleton<GameManager>
             }
 
         }
-        
+
         // Wait a frame to ensure MainBindings has set up properly
         StartCoroutine(InitializeVisualsAfterDelay(resourceMap));
     }
-    
+
     private System.Collections.IEnumerator InitializeVisualsAfterDelay(Dictionary<Hex, FieldType> resourceMap)
     {
         // Wait a frame for MainBindings to complete setup
         yield return null;
-        
+
         // Wait for MainBindings to exist
         int attempts = 0;
-        while (FindObjectOfType<MainBindings>() == null && attempts < 10)
+        while (FindFirstObjectByType<MainBindings>() == null && attempts < 10)
         {
             yield return new WaitForSeconds(0.1f);
             attempts++;
             Debug.Log($"[GameManager] Waiting for MainBindings... Attempt {attempts}");
         }
-        
+
         Debug.Log("[GameManager] Proceeding with visuals initialization");
-        
+
         // Ensure managers have proper references for new game session
         if (visualsManager == null) visualsManager = GridVisualsManager.Instance;
         if (interactionManager == null) interactionManager = InteractionManager.Instance;
-        
+
         visualsManager.InitializeVisuals(resourceMap);
         interactionManager.EnableInteraction(MyRole);
     }

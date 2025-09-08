@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -182,6 +183,59 @@ public struct HexVertex : IEquatable<HexVertex>
             VertexDirection.TopLeft => new[] { Hex, HexEdge.HexNeighbor(Hex, HexDirection.Left), HexEdge.HexNeighbor(Hex, HexDirection.TopLeft) },
             _ => new[] { Hex }
         };
+    }
+
+    public IEnumerable<HexEdge> GetAdjacentEdges()
+    {
+        var adj = GetAdjacentHexes();
+
+        var result = new HashSet<HexEdge>();
+
+        foreach (var hex in adj)
+        {
+            foreach (HexDirection dir in Enum.GetValues(typeof(HexDirection)))
+            {
+                var edge = new HexEdge(hex, dir);
+
+                if (edge.GetVertexEndpoints().Contains(this))
+                    result.Add(edge);
+            }
+        }
+
+        return result;
+    }
+
+    public bool TryGetEdgeTo(HexVertex other, out HexEdge edge)
+    {
+        edge = default;
+        if (Equals(other)) return false;
+
+        var shared = GetAdjacentHexes().Intersect(other.GetAdjacentHexes()).ToArray();
+        if (shared.Length != 2) return false;
+
+        if (TryDir(shared[0], shared[1], out var hexEdge))
+        {
+            edge = hexEdge;
+            return true;
+        }
+        if (TryDir(shared[1], shared[0], out hexEdge))
+        {
+            edge = hexEdge;
+            return true;
+        }
+        return false;
+
+        static bool TryDir(Hex from, Hex to, out HexEdge hexEdge)
+        {
+            foreach (HexDirection cand in Enum.GetValues(typeof(HexDirection)))
+            {
+                if (HexEdge.HexNeighbor(from, cand).Equals(to))
+                {
+                    hexEdge = new HexEdge(from, cand); return true;
+                }
+            }
+            hexEdge = default; return false;
+        }
     }
 
     // Equality members for HashSet support (undirected vertex)

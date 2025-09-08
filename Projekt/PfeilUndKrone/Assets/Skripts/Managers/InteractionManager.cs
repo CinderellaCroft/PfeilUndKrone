@@ -22,10 +22,10 @@ public class InteractionManager : Singleton<InteractionManager>
     private List<List<Vector3>> allServerPathsWorld = new();
     private List<int> workerPathSteps = new();
     private List<bool> workerMovingStates = new();
-    
+
     // Workers sitting on resource fields (visible when paths are created)
     private List<GameObject> resourceFieldWorkers = new();
-    
+
     // Stored path data for bandit visibility (resource fields only, no routes)
     private List<Hex> submittedResourceFields = new();
     private List<bool> submittedPathIsWagonWorker = new();
@@ -52,7 +52,7 @@ public class InteractionManager : Singleton<InteractionManager>
     private HashSet<HexVertex> validNextVertices = new();
     private List<HexVertex> centralVertices;
     private bool pathComplete;
-    
+
     // Resource field selection for path starting
     private Hex selectedResourceField = default;
     private HashSet<HexVertex> availableStartVertices = new();
@@ -89,6 +89,10 @@ public class InteractionManager : Singleton<InteractionManager>
     private Color originalVertexColor = Color.red;
     private Color highlightColor = Color.magenta;
 
+    // Path highlighting system
+    private List<HexVertex> serverPathVertices = new();
+    private List<List<HexVertex>> allServerPathsVertices = new();
+
     protected override void Awake()
     {
         base.Awake();
@@ -100,7 +104,7 @@ public class InteractionManager : Singleton<InteractionManager>
     void Start()
     {
         Debug.Log($"[InteractionManager] Start() - net is assigned: {net != null}");
-        
+
         // If net is not assigned, try to get NetworkManager.Instance
         if (net == null)
         {
@@ -108,7 +112,7 @@ public class InteractionManager : Singleton<InteractionManager>
             net = NetworkManager.Instance;
             Debug.Log($"[InteractionManager] NetworkManager.Instance assigned: {net != null}");
         }
-        
+
         centralVertices = Enum.GetValues(typeof(VertexDirection))
             .Cast<VertexDirection>()
             .Select(d => new HexVertex(new Hex(0, 0), d))
@@ -118,7 +122,7 @@ public class InteractionManager : Singleton<InteractionManager>
     public void EnableInteraction(PlayerRole role)
     {
         if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
-        else if (role == PlayerRole.Bandit) 
+        else if (role == PlayerRole.Bandit)
         {
             currentMode = InteractionMode.AmbushPlacement;
             ShowWorkersForBandit();
@@ -148,8 +152,8 @@ public class InteractionManager : Singleton<InteractionManager>
         if (currentMode == InteractionMode.AmbushPlacement) DrawAmbushLines();
     }
 
-    public void OnHexClicked(Hex h) 
-    { 
+    public void OnHexClicked(Hex h)
+    {
         if (currentMode == InteractionMode.PathSelection) HandleResourceFieldClick(h);
     }
     public void OnEdgeClicked(HexEdge e) { /* ... */ }
@@ -366,7 +370,8 @@ public class InteractionManager : Singleton<InteractionManager>
         }
 
         usedWorkers++;
-        if (currentPathUseWagonWorker) {
+        if (currentPathUseWagonWorker)
+        {
             usedWagonWorkers++;
         }
 
@@ -399,6 +404,7 @@ public class InteractionManager : Singleton<InteractionManager>
     private void VisualizeCompletedPath(int pathIndex, Color pathColor)
     {
         var pathVertices = completedPaths[pathIndex];
+
         foreach (var vertex in pathVertices)
         {
             var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
@@ -410,6 +416,16 @@ public class InteractionManager : Singleton<InteractionManager>
                     renderer.material.color = pathColor;
                 }
             }
+        }
+
+        for (int i = 1; i < pathVertices.Count; i++)
+        {
+            var a = pathVertices[i - 1];
+            var b = pathVertices[i];
+            if (a.TryGetEdgeTo(b, out var edge))
+                GridVisualsManager.Instance.SetEdgeVisible(edge, true);
+            else
+                Debug.LogWarning($"[IM] No edge found between {a} and {b}");
         }
     }
 
@@ -428,7 +444,7 @@ public class InteractionManager : Singleton<InteractionManager>
         // Instantiate worker at the field center
         GameObject resourceWorker = Instantiate(workerPrefab, fieldCenter, Quaternion.identity);
         resourceWorker.SetActive(true);
-        
+
         // Store the worker for later cleanup
         resourceFieldWorkers.Add(resourceWorker);
 
@@ -559,7 +575,7 @@ public class InteractionManager : Singleton<InteractionManager>
     public bool CanCreateNewPath(bool useWagonWorker)
     {
         if (pathCreationState != PathCreationState.NotCreating) return false;
-        
+
         if (useWagonWorker)
         {
             return GetAvailableWagonWorkerCount() > 0;
@@ -616,7 +632,7 @@ public class InteractionManager : Singleton<InteractionManager>
     public void BuyWorker()
     {
         Debug.Log($"[InteractionManager] BuyWorker() called - net is null: {net == null}");
-        
+
         if (!CanBuyWorker())
         {
             Debug.LogError($"❌ Error: Cannot buy worker! Need {workerGrainCost} grain and {workerWoodCost} wood, have {currentGrain} grain and {currentWood} wood");
@@ -793,14 +809,14 @@ public class InteractionManager : Singleton<InteractionManager>
     public void BuyAmbush()
     {
         Debug.Log($"[InteractionManager] BuyAmbush() called - net is null: {net == null}");
-        
+
         // Determine which resource to use (declare once at top of method)
         bool useWood = currentWood >= currentGrain;
         string resourceType = useWood ? "wood" : "grain";
         int currentAmount = useWood ? currentWood : currentGrain;
-        
+
         Debug.Log($"[BuyAmbush] Resources: Wood={currentWood}, Grain={currentGrain} → Using {resourceType} (amount={currentAmount})");
-        
+
         if (!CanBuyAmbush())
         {
             Debug.LogError($"❌ Error: Cannot buy ambush! Need {ambushCost} {resourceType}, have {currentAmount}");
@@ -855,13 +871,13 @@ public class InteractionManager : Singleton<InteractionManager>
     void HandleResourceFieldClick(Hex h)
     {
         Debug.Log($"🔍 HandleResourceFieldClick called with hex ({h.Q},{h.R}), current state: {pathCreationState}");
-        
-        if (pathCreationState != PathCreationState.SelectingResourceField) 
+
+        if (pathCreationState != PathCreationState.SelectingResourceField)
         {
             Debug.Log($"❌ Not in resource field selection state. Current state: {pathCreationState}");
             return;
         }
-        
+
         // Check if this is a valid resource field (not Castle or Moat)
         var resourceMap = GameManager.Instance?.GetResourceMap();
         if (resourceMap == null || !resourceMap.ContainsKey(h))
@@ -869,19 +885,19 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.LogError($"❌ Error: Invalid hex field selected! ResourceMap null: {resourceMap == null}, Contains key: {resourceMap?.ContainsKey(h)}");
             return;
         }
-        
+
         var fieldType = resourceMap[h];
         Debug.Log($"🔍 Field type at ({h.Q},{h.R}): {fieldType}");
-        
+
         if (fieldType == FieldType.Castle || fieldType == FieldType.Moat)
         {
             Debug.LogError($"❌ Error: Cannot start path from {fieldType} field! Select a resource field (Wood, Wheat, Ore, Desert).");
             return;
         }
-        
+
         selectedResourceField = h;
         pathCreationState = PathCreationState.SelectingStartVertex;
-        
+
         // Get all vertices of the selected resource field
         availableStartVertices.Clear();
         for (int i = 0; i < 6; i++)
@@ -890,7 +906,7 @@ public class InteractionManager : Singleton<InteractionManager>
             availableStartVertices.Add(vertex);
             ToggleVertexHighlight(vertex); // Highlight available start vertices
         }
-        
+
         Debug.Log($"✅ Resource field {fieldType} at ({h.Q},{h.R}) selected. Now select a corner to start the path.");
     }
 
@@ -898,7 +914,7 @@ public class InteractionManager : Singleton<InteractionManager>
     void HandlePathClick(HexVertex v)
     {
         if (pathComplete || isMoving) return;
-        
+
         if (pathCreationState == PathCreationState.SelectingStartVertex)
         {
             // Check if clicked vertex is one of the available start vertices
@@ -907,7 +923,7 @@ public class InteractionManager : Singleton<InteractionManager>
                 Debug.LogError("❌ Error: Select a corner of the selected resource field!");
                 return;
             }
-            
+
             // Clear highlights from available vertices and only highlight the selected one
             foreach (var vertex in availableStartVertices)
             {
@@ -916,11 +932,11 @@ public class InteractionManager : Singleton<InteractionManager>
                     ToggleVertexHighlight(vertex); // Remove highlight
                 }
             }
-            
+
             selectedVertices.Add(v);
             pathCreationState = PathCreationState.Creating;
             validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v));
-            
+
             Debug.Log($"✅ Start vertex selected: ({v.Hex.Q},{v.Hex.R}) Direction: {v.Direction}");
             return;
         }
@@ -939,6 +955,10 @@ public class InteractionManager : Singleton<InteractionManager>
             return;
         }
 
+        var from = selectedVertices.Last();
+        if (from.TryGetEdgeTo(v, out var edge))
+            GridVisualsManager.Instance.SetEdgeVisible(edge, true);
+
         selectedVertices.Add(v);
         ToggleVertexHighlight(v);
         if (centralVertices.Contains(v))
@@ -946,7 +966,7 @@ public class InteractionManager : Singleton<InteractionManager>
             pathComplete = true;
             pathCreationState = PathCreationState.ReadyToConfirm;
             Debug.Log("✅ Path completed! Ready to confirm.");
-            
+
             // Update UI buttons when path is ready to confirm
             UIManager.Instance.UpdateKingPathButtonText();
             UIManager.Instance.UpdateKingPathConfirmButtonText();
@@ -970,14 +990,14 @@ public class InteractionManager : Singleton<InteractionManager>
             return false;
         }
 
-        var serializablePaths = completedPaths.Select((path, index) => 
+        var serializablePaths = completedPaths.Select((path, index) =>
         {
             var resourceField = completedPathResourceFields[index];
             var resourceMap = GameManager.Instance?.GetResourceMap();
             var resourceType = resourceMap?.ContainsKey(resourceField) == true ? resourceMap[resourceField].ToString() : "Unknown";
-            
-            return new SerializablePathData 
-            { 
+
+            return new SerializablePathData
+            {
                 path = path.Select(v => new SerializableHexVertex(v)).ToArray(),
                 resourceFieldQ = resourceField.Q,
                 resourceFieldR = resourceField.R,
@@ -1020,6 +1040,8 @@ public class InteractionManager : Singleton<InteractionManager>
         }
 
         serverPathWorld = path.Select(v => v.ToWorld(gridGen.hexRadius)).ToList();
+        serverPathVertices = path;
+
         if (!serverPathWorld.Any()) return;
 
         for (int i = 0; i < serverPathWorld.Count; i++)
@@ -1066,6 +1088,14 @@ public class InteractionManager : Singleton<InteractionManager>
             return;
         }
 
+        if (pathStep > 0 && pathStep < serverPathVertices.Count)
+        {
+            var prevV = serverPathVertices[pathStep - 1];
+            var currV = serverPathVertices[pathStep];
+            if (prevV.TryGetEdgeTo(currV, out var edge))
+                GridVisualsManager.Instance.SetEdgeVisible(edge, true);
+        }
+
         if (Vector3.Distance(curr, targ) < 0.01f)
         {
             pathStep++;
@@ -1107,12 +1137,22 @@ public class InteractionManager : Singleton<InteractionManager>
             workerMovingStates[workerIndex] = false;
             Destroy(workerObj);
             Debug.Log($"🪦 Worker {workerIndex} destroyed by ambush!");
-            
+
             // Mark this worker slot as destroyed (keep the index but null the object)
             // This prevents index shifting issues during the Update loop
             workerObjects[workerIndex] = null;
-            
+
             return;
+        }
+
+        int step = workerPathSteps[workerIndex];
+        var verts = allServerPathsVertices[workerIndex];
+        if (step > 0 && step < verts.Count)
+        {
+            var prevV = verts[step - 1];
+            var currV = verts[step];
+            if (prevV.TryGetEdgeTo(currV, out var edge))
+                GridVisualsManager.Instance.SetEdgeVisible(edge, true);
         }
 
         if (Vector3.Distance(curr, targ) < 0.01f)
@@ -1145,6 +1185,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
         workerObjects.Clear();
         allServerPathsWorld.Clear();
+        allServerPathsVertices.Clear();
         workerPathSteps.Clear();
         workerMovingStates.Clear();
 
@@ -1162,6 +1203,8 @@ public class InteractionManager : Singleton<InteractionManager>
             {
                 pathWorld[i] = new Vector3(pathWorld[i].x, pathWorld[i].y + 0.35f, pathWorld[i].z);
             }
+
+            allServerPathsVertices.Add(path);
 
             // Create worker for this path
             var workerObj = Instantiate(workerPrefab);
@@ -1394,9 +1437,15 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.Log($"[IM] Valid ambush [{banditAmbushes.IndexOf(ambush)}]: cornerA({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R},{ambush.cornerA.Direction}) <-> cornerB({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R},{ambush.cornerB.Direction})");
 
             var midPoint = (ambush.cornerA.ToWorld(gridGen.hexRadius) + ambush.cornerB.ToWorld(gridGen.hexRadius)) / 2f;
-            midPoint.y = 0.35f;
+            midPoint.y = 0f;
 
-            var orbGO = Instantiate(ambushOrb, midPoint, Quaternion.identity);
+            Quaternion rot;
+            if (midPoint.sqrMagnitude <= 1e-6f)
+                rot = Quaternion.identity;
+            else
+                rot = Quaternion.LookRotation(midPoint);
+
+            var orbGO = Instantiate(ambushOrb, midPoint, rot);
             animationAmbushOrbObjects.Add(orbGO);
 
             Debug.Log($"✅ Animation orb created at position {midPoint} for ambush {ambush.cornerA} <-> {ambush.cornerB}");
@@ -1485,7 +1534,7 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             if (worker != null) worker.SetActive(false);
         }
-        
+
         // Keep resource field workers visible during turn transitions
         // They will be cleaned up only when execution starts or game resets
 
@@ -1514,13 +1563,13 @@ public class InteractionManager : Singleton<InteractionManager>
         selectedResourceField = default;
         pathComplete = false;
         isMoving = false;
-        
+
         // Check if workerObj still exists before trying to access it
         if (workerObj != null && workerObj)
         {
             workerObj.SetActive(false);
         }
-        
+
         ambushStart = default;
 
         // Clean up all worker objects
@@ -1536,7 +1585,9 @@ public class InteractionManager : Singleton<InteractionManager>
         allServerPathsWorld.Clear();
         workerPathSteps.Clear();
         workerMovingStates.Clear();
-        
+
+        GridVisualsManager.Instance.HideAllEdges();
+
         // Clean up resource field workers
         foreach (var worker in resourceFieldWorkers)
         {
@@ -1564,7 +1615,7 @@ public class InteractionManager : Singleton<InteractionManager>
         ownedWagonWorkers = 0;
         usedWagonWorkers = 0;
         currentPathUseWagonWorker = false;
-        
+
         // Clear bandit visibility data
         submittedResourceFields.Clear();
         submittedPathIsWagonWorker.Clear();
@@ -1640,6 +1691,8 @@ public class InteractionManager : Singleton<InteractionManager>
         workerPathSteps.Clear();
         workerMovingStates.Clear();
 
+        GridVisualsManager.Instance.HideAllEdges();
+
         // Also clean up legacy worker
         if (workerObj != null)
         {
@@ -1650,52 +1703,41 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Round cleanup completed for {GameManager.Instance?.MyRole}");
     }
 
-    HexDirection GetDirectionBetween(HexVertex a, HexVertex b)
-    {
-        foreach (var hex in a.GetAdjacentHexes())
-            if (b.GetAdjacentHexes().Contains(hex))
-                foreach (HexDirection dir in Enum.GetValues(typeof(HexDirection)))
-                    if (Vector3.Distance(new HexEdge(hex, dir).ToWorld(gridGen.hexRadius),
-                        (a.ToWorld(gridGen.hexRadius) + b.ToWorld(gridGen.hexRadius)) / 2f) < 0.01f)
-                        return dir;
-        return HexDirection.Right;
-    }
-    
     /// <summary>
     /// Complete reset for a new game session
     /// </summary>
     public void ResetForNewGame()
     {
         Debug.Log("[InteractionManager] ResetForNewGame() - Resetting interaction state");
-        
+
         // Reset interaction state
         pathCreationState = PathCreationState.NotCreating;
         completedPaths.Clear();
         currentPathIndex = -1;
-        
+
         // Reset resources
         currentGold = 0;
         currentWood = 0;
         currentGrain = 0;
-        
+
         // Reset workers
         ownedWorkers = 0;
         usedWorkers = 0;
         ownedWagonWorkers = 0;
         usedWagonWorkers = 0;
-        
+
         // Reset ambush state
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;
-        
+
         // Reset path creation state
         pathComplete = false;
         currentPathUseWagonWorker = false;
         selectedResourceField = default(Hex);
-        
+
         // Clear visual elements
         ForceCompleteReset();
-        
+
         // Clear collections
         resourceFieldWorkers.Clear();
         placedAmbushes.Clear();
@@ -1705,19 +1747,19 @@ public class InteractionManager : Singleton<InteractionManager>
         selectedVertices.Clear();
         validNextVertices.Clear();
         workerPathSteps.Clear();
-        
+
         // Reset movement state
         isMoving = false;
         pathStep = 0;
         serverPathWorld?.Clear();
-        
+
         // Destroy worker object
         if (workerObj != null && workerObj)
         {
             Destroy(workerObj);
             workerObj = null;
         }
-        
+
         Debug.Log("[InteractionManager] ResetForNewGame() - Reset complete");
     }
 }
