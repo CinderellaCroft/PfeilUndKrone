@@ -1436,14 +1436,20 @@ public class InteractionManager : Singleton<InteractionManager>
 
             Debug.Log($"[IM] Valid ambush [{banditAmbushes.IndexOf(ambush)}]: cornerA({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R},{ambush.cornerA.Direction}) <-> cornerB({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R},{ambush.cornerB.Direction})");
 
-            var midPoint = (ambush.cornerA.ToWorld(gridGen.hexRadius) + ambush.cornerB.ToWorld(gridGen.hexRadius)) / 2f;
+            var aPos = ambush.cornerA.ToWorld(gridGen.hexRadius);
+            var bPos = ambush.cornerB.ToWorld(gridGen.hexRadius);
+
+            var midPoint = (aPos + bPos) / 2f;
             midPoint.y = 0f;
+
+            Vector3 dir = bPos - aPos;
+            dir.y = 0f;
 
             Quaternion rot;
             if (midPoint.sqrMagnitude <= 1e-6f)
                 rot = Quaternion.identity;
             else
-                rot = Quaternion.LookRotation(midPoint);
+                rot = Quaternion.LookRotation(dir);
 
             var orbGO = Instantiate(ambushOrb, midPoint, rot);
             animationAmbushOrbObjects.Add(orbGO);
