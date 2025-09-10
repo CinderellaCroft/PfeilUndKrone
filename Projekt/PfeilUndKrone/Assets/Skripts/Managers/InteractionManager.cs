@@ -156,12 +156,14 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         if (currentMode == InteractionMode.PathSelection) HandleResourceFieldClick(h);
     }
-    public void OnEdgeClicked(HexEdge e) { /* ... */ }
+    public void OnEdgeClicked(HexEdge e)
+    {
+        if (currentMode == InteractionMode.AmbushPlacement) HandleAmbushClick(e);
+    }
 
     public void OnVertexClicked(HexVertex v)
     {
         if (currentMode == InteractionMode.PathSelection) HandlePathClick(v);
-        else if (currentMode == InteractionMode.AmbushPlacement) HandleAmbushClick(v);
     }
 
     // === VERTEX HIGHLIGHTING SYSTEM ===
@@ -1260,7 +1262,7 @@ public class InteractionManager : Singleton<InteractionManager>
             .Distinct();
 
     // === AMBUSH HANDLING ===
-    void HandleAmbushClick(HexVertex v)
+    void HandleAmbushClick(HexEdge e)
     {
         if (!isInAmbushPlacementMode)
         {
@@ -1268,31 +1270,15 @@ public class InteractionManager : Singleton<InteractionManager>
             return;
         }
 
-        if (ambushStart.Equals(default))
-        {
-            ambushStart = v;
-            EnsureVertexHighlighted(v);
-            Debug.Log($"✅ Ambush start set at vertex: ({v.Hex.Q},{v.Hex.R},{v.Direction})");
-            return;
-        }
+        // Endpunkte der Edge → Ambush-Daten
+        var ends = e.GetVertexEndpoints(); // liefert 2 HexVertex (siehe HexGrid.cs)
+        var a = ends[0];
+        var b = ends[1];
 
-        // Check if the clicked vertex is a neighbor of the ambush start
-        var neighborsOfStart = GetNeighborVertices(ambushStart).ToList();
-
-        Debug.Log($"Checking neighbors: Start vertex ({ambushStart.Hex.Q},{ambushStart.Hex.R}) has {neighborsOfStart.Count} neighbors");
-        Debug.Log($"Clicked vertex: ({v.Hex.Q},{v.Hex.R}) - Is neighbor: {neighborsOfStart.Contains(v)}");
-
-        if (!neighborsOfStart.Contains(v))
-        {
-            Debug.LogError($"❌ Error: Vertices are not neighbors! Start: ({ambushStart.Hex.Q},{ambushStart.Hex.R}) End: ({v.Hex.Q},{v.Hex.R}) Resetting ambush start.");
-            UpdateVertexHighlightsForAmbushVertices(ambushStart);
-            ambushStart = default;
-            return;
-        }
-
-        var existingIndex = placedAmbushes.FindIndex(a =>
-            (a.cornerA.Equals(ambushStart) && a.cornerB.Equals(v)) ||
-            (a.cornerA.Equals(v) && a.cornerB.Equals(ambushStart)));
+        // Toggle: existiert schon?
+        int existingIndex = placedAmbushes.FindIndex(x =>
+            (x.cornerA.Equals(a) && x.cornerB.Equals(b)) ||
+            (x.cornerA.Equals(b) && x.cornerB.Equals(a)));
 
         if (existingIndex >= 0)
         {
@@ -1302,9 +1288,7 @@ public class InteractionManager : Singleton<InteractionManager>
                 ambushOrbObjects.RemoveAt(existingIndex);
             }
             placedAmbushes.RemoveAt(existingIndex);
-            UpdateVertexHighlightsForAmbushVertices(ambushStart);
-            UpdateVertexHighlightsForAmbushVertices(v);
-            Debug.Log($"Ambush removed between vertices ({ambushStart.Hex.Q},{ambushStart.Hex.R}) and ({v.Hex.Q},{v.Hex.R})");
+            Debug.Log($"🗑️ Ambush removed on edge {e}");
         }
         else
         {
@@ -1321,44 +1305,30 @@ public class InteractionManager : Singleton<InteractionManager>
                 return;
             }
 
-            var ambushEdge = new NetworkingDTOs.AmbushEdge { cornerA = ambushStart, cornerB = v };
+            // Ambush anlegen
+            var ambushEdge = new AmbushEdge { cornerA = a, cornerB = b };
             placedAmbushes.Add(ambushEdge);
 
+            // Visuelles Orb mittig mit Rotation entlang der Edge
+            var aPos = a.ToWorld(gridGen.hexRadius);
+            var bPos = b.ToWorld(gridGen.hexRadius);
+            var mid = (aPos + bPos) * 0.5f; mid.y = 0f;
 
-            var aPos = ambushStart.ToWorld(gridGen.hexRadius);
-            var bPos = v.ToWorld(gridGen.hexRadius);
+            Vector3 dir = bPos - aPos; dir.y = 0f;
 
-            var midPoint = (aPos + bPos) * 0.5f;
-            midPoint.y = 0;
+            Quaternion rot = (dir.sqrMagnitude <= 1e-6f) ? Quaternion.identity : Quaternion.LookRotation(dir);
 
-            Vector3 dir = bPos - aPos;
-            dir.y = 0f;
+            var orb = Instantiate(ambushOrb, dir, rot);
+            ambushOrbObjects.Add(orb);
 
-            Quaternion rot;
-            if (dir.sqrMagnitude <= 1e-6f)
-                rot = Quaternion.identity;
-            else
-                rot = Quaternion.LookRotation(dir);
-
-            var orbGO = Instantiate(ambushOrb, midPoint, rot);
-            ambushOrbObjects.Add(orbGO);
-
-            EnsureVertexHighlighted(v);
-            Debug.Log($"✅ Ambush created between vertices ({ambushStart.Hex.Q},{ambushStart.Hex.R}) and ({v.Hex.Q},{v.Hex.R})");
+            Debug.Log($"✅ Ambush placed on edge {e}");
         }
 
-        // Reset for next ambush placement (don't disable placement mode immediately)
-        ambushStart = default;
-
-        // Only disable placement mode if we've used up all purchased ambushes
+        // Modus ggf. schließen, wenn alle gekauften platziert
         if (placedAmbushes.Count >= purchasedAmbushes)
         {
             isInAmbushPlacementMode = false;
-            Debug.Log($"✅ All purchased ambushes ({purchasedAmbushes}) have been placed. Placement mode disabled.");
-        }
-        else
-        {
-            Debug.Log($"✅ Ambush placed. {purchasedAmbushes - placedAmbushes.Count} more ambushes available to place.");
+            Debug.Log("✅ All purchased ambushes placed. Placement mode disabled.");
         }
     }
 

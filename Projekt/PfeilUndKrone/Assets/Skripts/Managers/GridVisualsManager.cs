@@ -175,7 +175,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             go.name = edge.ToString();
             var em = go.AddComponent<EdgeMarker>(); em.edge = edge; em.interaction = interactionManager;
             hexEdgeObjects[edge] = go;
-            go.SetActive(false);
+            go.SetActive(true);
         }
     }
 
