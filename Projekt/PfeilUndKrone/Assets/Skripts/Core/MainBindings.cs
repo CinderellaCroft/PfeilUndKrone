@@ -25,9 +25,6 @@ public class MainBindings : MonoBehaviour
     
     [Header("Panels")]
     public GameObject winnerPanel, loserPanel;
-    
-    [Header("Other UI")]
-    public LobbyUIController lobbyUIController;
 
     //GridVisualManager references
     // GridVisualsManager refs
@@ -48,7 +45,6 @@ public class MainBindings : MonoBehaviour
     public GameObject desertPrefab;
     public GameObject vertexMarkerPrefab;
     public GameObject edgeMarkerPrefab;
-
 
 
     void Awake()

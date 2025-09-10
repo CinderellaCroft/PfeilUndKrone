@@ -330,6 +330,12 @@ namespace NetworkingDTOs
     }
 
     [Serializable]
+    public class LobbyCreatedPayload
+    {
+        public string lobby_id; // Must match the server's snake_case JSON key
+    }
+
+    [Serializable]
     public class LobbyJoinedPayload
     {
         public string lobby_id;
@@ -347,7 +353,7 @@ namespace NetworkingDTOs
     public class ServerMessageLobbyCreated
     {
         public string type;
-        public string lobbyID;
+        public LobbyCreatedPayload payload;
     }
 
     [Serializable]

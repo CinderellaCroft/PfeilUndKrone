@@ -11,11 +11,18 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
     private int PORT = 8080;
-    private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
+    private String IP = "localhost";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
     private bool socketSetup = false;
+
+    public event Action<string> OnLobbyCreated;
+    public event Action<LobbyJoinedPayload> OnLobbyJoined;
+    public event Action<string> OnLobbyInfo;
+
+    private TaskCompletionSource<bool> connectionTcs;
+
     public override bool IsConnected
     {
         get
@@ -38,39 +45,32 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             Debug.Log("NM Connect(): SetupWebsocket()");
             SetupWebsocket();
         }
-        if (this.websocket.State != WebSocketState.Open && this.websocket.State != WebSocketState.Connecting)
+        if (this.websocket.State == WebSocketState.Open)
         {
-            Debug.Log("NM Connect() -> await Connect()");
-
-            // Use a timeout to prevent hanging, but check if connection was successful
-            var connectTask = this.websocket.Connect();
-            var timeoutTask = Task.Delay(5000); // 5 second timeout
-
-            var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-
-            if (completedTask == timeoutTask)
-            {
-                Debug.LogError("Connection timeout after 5 seconds!");
-
-                // Check if connection was actually established despite timeout
-                if (this.websocket.State == WebSocketState.Open)
-                {
-                    Debug.Log("Connection was established despite timeout - continuing...");
-                }
-                else
-                {
-                    Debug.LogError("Connection failed - websocket state: " + this.websocket.State);
-                    return;
-                }
-            }
-
-            // Wait a bit for the connection to be fully established
-            await Task.Delay(200);
+            Debug.Log("NM Connect(): Already connected.");
+            return;
         }
-
-        Debug.Log($"NM Connect() completed. State: {this.websocket.State}, IsConnected: {IsConnected}");
+        if (this.websocket.State == WebSocketState.Connecting)
+        {
+            Debug.Log("NM Connect(): Connection already in progress, awaiting result...");
+            await connectionTcs.Task;
+            return;
+        }
+        
+        // Use a TaskCompletionSource for a reliable async connection
+        connectionTcs = new TaskCompletionSource<bool>();
+        
+        // Start the connection attempt (fire and forget)
+        // The result will be handled by our OnOpen/OnError events
+        _ = this.websocket.Connect();
+        
+        Debug.Log("NM Connect() -> Awaiting connection result...");
+        
+        // Await the result from our TaskCompletionSource
+        bool success = await connectionTcs.Task;
+        
+        Debug.Log($"NM Connect() completed. Success: {success}, State: {this.websocket.State}");
     }
-
 
 
     public override async Task Disconnect()
@@ -133,15 +133,36 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             this.websocket = new WebSocket($"ws://{IP}:{PORT}");
         }
 
+        this.websocket.OnOpen += () =>
+        {
+            Debug.Log("✅ Connection to server opened!");
+            // Signal that the connection task was successful
+            if (connectionTcs != null && !connectionTcs.Task.IsCompleted)
+            {
+                connectionTcs.TrySetResult(true);
+            }
+        };
+
         this.websocket.OnError += (e) =>
         {
             Debug.LogError("❌ Connection Error: " + e);
+            // Signal that the connection task failed
+            if (connectionTcs != null && !connectionTcs.Task.IsCompleted)
+            {
+                connectionTcs.TrySetResult(false);
+            }
         };
 
         this.websocket.OnClose += (e) =>
         {
             Debug.Log("❌ Connection closed: " + e);
+            // Signal that the connection task failed
+            if (connectionTcs != null && !connectionTcs.Task.IsCompleted)
+            {
+                connectionTcs.TrySetResult(false);
+            }
         };
+
 
         // This is where we handle messages from the server
         this.websocket.OnMessage += (bytes) =>
@@ -161,32 +182,30 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         Debug.Log("cl: join_random -> sv: lobby_randomly_joined");
                         var lj = JsonUtility.FromJson<ServerMessageLobbyJoinedRandomly>(messageString);
                         Debug.Log($"Joined lobby {lj.payload.lobby_id} (queued={lj.payload.queued})");
-                        SafeUpdateInfoText(
-                            lj.payload.queued
-                                ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})"
-                                : $"Opponent found! Starting…"
-                        );
+                        // Raise the generic OnLobbyJoined event
+                        OnLobbyJoined?.Invoke(lj.payload);
+                        // Also raise the info event for any UI to display
+                        string randomInfo = lj.payload.queued ? $"Waiting for opponent… (Lobby ID: {lj.payload.lobby_id})" : "Opponent found! Starting…";
+                        OnLobbyInfo?.Invoke(randomInfo);
                         break;
 
-                    // receive lobbyID by server, log lobbyID to console -> share lobbyID with a friend
                     case "lobby_created":
                         var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
-                        Debug.Log($"Created lobby: {msg.lobbyID}");
-                        if (UIManager.Instance != null)
-                        {
-                            UIManager.Instance.ShowCreatedLobbyPanel(msg.lobbyID);
-                        }
-                        else
-                        {
-                            Debug.LogWarning($"UIManager not available - Created lobby: {msg.lobbyID}");
-                        }
+
+                        string lobbyId = msg.payload.lobby_id; 
+
+                        Debug.Log($"Created lobby: {lobbyId}");
+                        // Raise our new event instead of calling UIManager directly
+                        OnLobbyCreated?.Invoke(lobbyId);
                         break;
 
-                    // Handle joining a specific lobby
                     case "lobby_joinedById":
                         var joinedMsg = JsonUtility.FromJson<ServerMessageLobbyJoinedById>(messageString);
                         Debug.Log($"Joined lobby {joinedMsg.payload.lobby_id} by ID.");
-                        SafeUpdateInfoText($"Joined Lobby! Waiting for opponent...");
+                        // Raise the generic OnLobbyJoined event
+                        OnLobbyJoined?.Invoke(joinedMsg.payload);
+                        // Also raise the info event
+                        OnLobbyInfo?.Invoke($"Joined Lobby! Waiting for opponent...");
                         break;
 
                     case "match_created":
@@ -532,11 +551,6 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         break;
                 }
             });
-        };
-
-        this.websocket.OnOpen += () =>
-        {
-            Debug.Log("✅ Connection to server opened!");
         };
     }
 
