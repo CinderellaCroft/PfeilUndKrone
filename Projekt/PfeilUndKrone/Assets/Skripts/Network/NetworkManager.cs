@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
-    private int PORT = 8080;
+    private int PORT = 8081;
     private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
