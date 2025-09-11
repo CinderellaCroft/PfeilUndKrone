@@ -220,7 +220,7 @@ public class UIManager : Singleton<UIManager>
 
     public void UpdateResourcesText(int gold, int wood, int grain)
     {
-        resourcesText.text = $"Gold: {gold}\nWood: {wood}\nGrain: {grain}";
+        resourcesText.text = $"          : {gold}           : {wood}           : {grain}";
 
         // Update InteractionManager resources
         if (InteractionManager.Instance != null)
