@@ -591,6 +591,12 @@ public class InteractionManager : Singleton<InteractionManager>
         return pathCreationState == PathCreationState.ReadyToConfirm && pathComplete;
     }
 
+    // Hover on hex fields should only be shown while selecting a resource field for a new path
+    public bool IsHexHoverEnabled()
+    {
+        return currentMode == InteractionMode.PathSelection && pathCreationState == PathCreationState.SelectingResourceField;
+    }
+
     public int GetCompletedPathCount()
     {
         return completedPaths.Count;
