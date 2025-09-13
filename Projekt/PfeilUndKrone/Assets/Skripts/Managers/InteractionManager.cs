@@ -214,6 +214,8 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             currentMode = InteractionMode.AmbushPlacement;
             ShowWorkersForBandit();
+            // Ensure edge colliders are created for new game
+            CreateAmbushEdgeColliders();
         }
     }
 
@@ -2182,6 +2184,13 @@ public class InteractionManager : Singleton<InteractionManager>
         placedAmbushes.Clear();
         ambushEdges.Clear();
 
+        // Clean up edge colliders for ambush system
+        foreach (var edgeCollider in ambushEdgeColliders)
+        {
+            if (edgeCollider != null) Destroy(edgeCollider);
+        }
+        ambushEdgeColliders.Clear();
+
         Debug.Log("🔄 Complete reset performed - all colors, workers, and ambushes cleared");
     }
 
@@ -2262,6 +2271,9 @@ public class InteractionManager : Singleton<InteractionManager>
         completedPaths.Clear();
         currentPathIndex = -1;
 
+        // Reset mode to None - will be set again when role is assigned
+        currentMode = InteractionMode.None;
+
         // Reset resources
         currentGold = 0;
         currentWood = 0;
@@ -2283,6 +2295,7 @@ public class InteractionManager : Singleton<InteractionManager>
         selectedResourceField = default(Hex);
 
         // Clear visual elements
+        HideAmbushPreview(); // Clean up any preview materials
         ForceCompleteReset();
 
         // Clear collections
