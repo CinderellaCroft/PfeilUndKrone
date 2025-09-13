@@ -33,6 +33,9 @@ public class HexMarker : MonoBehaviour, IPointerClickHandler, IPointerEnterHandl
     public void OnPointerClick(PointerEventData eventData)
     {
         if (interaction == null) return;
+        // Only handle left click for selecting a resource field; ignore right-clicks
+        if (eventData.button != PointerEventData.InputButton.Left) return;
+
         // Only react if hover is currently enabled (path resource field selection)
         if (interaction.IsHexHoverEnabled())
         {
