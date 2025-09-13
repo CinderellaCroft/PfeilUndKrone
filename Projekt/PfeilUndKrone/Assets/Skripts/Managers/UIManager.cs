@@ -191,7 +191,7 @@ public class UIManager : Singleton<UIManager>
 
     public void UpdateRoleText(PlayerRole role)
     {
-        roleText.text = $"Role:\n{role}";
+        roleText.text = $"{role}";
         // Update worker text when role changes
         UpdateWorkerText();
     }
@@ -354,9 +354,10 @@ public class UIManager : Singleton<UIManager>
             kingPathConfirmButton.interactable = InteractionManager.Instance.CanConfirmPath();
         }
     }
-
+    
     public void UpdateKingWorkerBuyButtonText()
     {
+        /*
         if (kingWorkerBuyButton != null && InteractionManager.Instance != null)
         {
             var buttonText = kingWorkerBuyButton.GetComponentInChildren<TextMeshProUGUI>();
@@ -366,6 +367,7 @@ public class UIManager : Singleton<UIManager>
             }
             kingWorkerBuyButton.interactable = InteractionManager.Instance.CanBuyWorker();
         }
+        */
     }
 
     public void UpdateKingWagonUpgradeButtonText()
@@ -398,6 +400,7 @@ public class UIManager : Singleton<UIManager>
 
     public void UpdateBanditAmbushButtonText()
     {
+        /*
         if (banditAmbushButton != null && InteractionManager.Instance != null)
         {
             var buttonText = banditAmbushButton.GetComponentInChildren<TextMeshProUGUI>();
@@ -409,6 +412,7 @@ public class UIManager : Singleton<UIManager>
             // Disable button if can't buy ambush
             banditAmbushButton.interactable = InteractionManager.Instance.CanBuyAmbush();
         }
+        */
     }
 
     // === BUTTON CLICK HANDLERS ===
