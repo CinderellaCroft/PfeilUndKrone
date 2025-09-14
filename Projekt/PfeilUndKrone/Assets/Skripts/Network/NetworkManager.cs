@@ -11,7 +11,8 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
     private int PORT = 8080;
-    private String IP = "localhost";//   "localhost"     "172.104.235.41"
+
+    private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
@@ -578,23 +579,6 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         string finalJson = JsonUtility.ToJson(message);
 
         await websocket.SendText(finalJson);
-    }
-
-    /// <summary>
-    /// Called by UI to join a random game.
-    /// </summary>
-    public void JoinRandomLobby()
-    {
-        Debug.Log($"JoinRandomLobby() called. IsConnected: {IsConnected}, WebSocket State: {websocket?.State}");
-        if (IsConnected)
-        {
-            Debug.Log("NM -> Sending 'join_random'");
-            Send("join_random", new object());
-        }
-        else
-        {
-            Debug.LogError($"Cannot join random lobby, not connected! WebSocket State: {websocket?.State}");
-        }
     }
 
     /// <summary>

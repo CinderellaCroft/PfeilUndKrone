@@ -28,7 +28,13 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private GameObject loserPanel;  // Assign the LoserPanel in the Inspector
 
 
+    [Header("Floating Text")]
+    public GameObject floatingTextPrefab; // Assign a prefab with a TextMeshProUGUI and FloatingText component
+    public Transform goldTextContainer; // Assign the parent transform for the gold floating text
+    public Transform woodTextContainer; // Assign the parent transform for the wood floating text
+    public Transform grainTextContainer; // Assign the parent transform for the grain floating text
 
+    private int previousGold, previousWood, previousGrain;
 
     protected override void Awake()
     {
@@ -38,6 +44,11 @@ public class UIManager : Singleton<UIManager>
         // Ensure end-game panels are hidden at the start
         if (winnerPanel != null) winnerPanel.SetActive(false);
         if (loserPanel != null) loserPanel.SetActive(false);
+
+        // Initialize previous resource values
+        previousGold = 0;
+        previousWood = 0;
+        previousGrain = 0;
     }
 
     //MainBindings.cs MonoBehaviour mit containing fresh references
@@ -232,7 +243,26 @@ public class UIManager : Singleton<UIManager>
 
     public void UpdateResourcesText(int gold, int wood, int grain)
     {
+        // Show floating text for resource changes
+        if (gold != previousGold)
+        {
+            ShowFloatingText(gold - previousGold, goldTextContainer);
+        }
+        if (wood != previousWood)
+        {
+            ShowFloatingText(wood - previousWood, woodTextContainer);
+        }
+        if (grain != previousGrain)
+        {
+            ShowFloatingText(grain - previousGrain, grainTextContainer);
+        }
+
         resourcesText.text = $"          : {gold}           : {wood}           : {grain}";
+
+        // Update previous resource values
+        previousGold = gold;
+        previousWood = wood;
+        previousGrain = grain;
 
         // Update InteractionManager resources
         if (InteractionManager.Instance != null)
@@ -244,6 +274,19 @@ public class UIManager : Singleton<UIManager>
             // Update worker text when resources change (for King)
             UpdateWorkerText();
         }
+    }
+
+    private void ShowFloatingText(int change, Transform container)
+    {
+        if (floatingTextPrefab == null) return;
+
+        GameObject floatingTextObject = Instantiate(floatingTextPrefab, container);
+        FloatingText floatingText = floatingTextObject.GetComponent<FloatingText>();
+
+        string text = (change > 0 ? "+" : "") + change;
+        bool isPositive = change > 0;
+
+        floatingText.SetText(text, isPositive);
     }
 
     public void UpdateWorkerText()

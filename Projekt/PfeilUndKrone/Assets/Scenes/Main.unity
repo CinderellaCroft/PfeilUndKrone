@@ -3158,6 +3158,10 @@ MonoBehaviour:
   quitGameButton: {fileID: 0}
   winnerPanel: {fileID: 231203891}
   loserPanel: {fileID: 2000159011}
+  floatingTextPrefab: {fileID: 8369155795449536606, guid: 9ec88da73f6804645a883ecff5b89270, type: 3}
+  goldTextContainer: {fileID: 693740784}
+  woodTextContainer: {fileID: 479417224}
+  grainTextContainer: {fileID: 1720749001}
 --- !u!4 &1585417541
 Transform:
   m_ObjectHideFlags: 0
