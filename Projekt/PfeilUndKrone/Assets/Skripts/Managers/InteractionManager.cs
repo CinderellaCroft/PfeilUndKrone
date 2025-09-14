@@ -684,6 +684,20 @@ public class InteractionManager : Singleton<InteractionManager>
         return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0;
     }
 
+    public void QuitGameRequest()
+    {
+        if (net == null)
+        {
+            Debug.LogWarning("[InteractionManager] net is null in BuyWorker, trying to get NetworkManager.Instance");
+            net = NetworkManager.Instance;
+            Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
+        }
+        var dummyPayload = new { };
+        net.Send("quit_game", dummyPayload);
+        Debug.Log($"Quit Game request sent");
+
+    }
+
     public void UpgradeWorkerToWagon()
     {
         if (!CanUpgradeWorkerToWagon())

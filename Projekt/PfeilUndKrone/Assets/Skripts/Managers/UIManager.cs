@@ -21,6 +21,7 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private Button kingWagonUpgradeButton;
     [SerializeField] private Button kingWagonPathButton;
     [SerializeField] private Button banditAmbushButton;
+    [SerializeField] private Button quitGameButton;
 
     [Header("End Game Panels")]
     [SerializeField] private GameObject winnerPanel; // Assign the WinnerPanel in the Inspector
@@ -56,6 +57,7 @@ public class UIManager : Singleton<UIManager>
         kingWagonUpgradeButton = b.kingWagonUpgradeButton;
         kingWagonPathButton = b.kingWagonPathButton;
         banditAmbushButton = b.banditAmbushButton;
+        quitGameButton = b.quitGameButton;
 
         winnerPanel = b.winnerPanel;
         loserPanel = b.loserPanel;
@@ -67,7 +69,7 @@ public class UIManager : Singleton<UIManager>
 
         // Re-setup button listeners since references have changed
         SetupButtonListeners();
-        
+
         // Update role text with current role from GameManager
         if (GameManager.Instance != null)
         {
@@ -114,6 +116,7 @@ public class UIManager : Singleton<UIManager>
         if (kingPathConfirmButton == null) Debug.LogWarning("kingPathConfirmButton is not assigned in UIManager.", this.gameObject);
         if (kingWorkerBuyButton == null) Debug.LogWarning("kingWorkerBuyButton is not assigned in UIManager.", this.gameObject);
         if (banditAmbushButton == null) Debug.LogWarning("banditAmbushButton is not assigned in UIManager.", this.gameObject);
+        if (quitGameButton == null) Debug.LogWarning("quitGameButton is not assigned in UIManager.", this.gameObject);
 
         // NEW: Validate end game panels
         if (winnerPanel == null || loserPanel == null)
@@ -132,7 +135,7 @@ public class UIManager : Singleton<UIManager>
         SetDoneButtonActive(false);
         SetKingButtonsActive(false);
         SetBanditButtonsActive(false);
-        
+
         // Update role text with current role from GameManager
         if (GameManager.Instance != null)
         {
@@ -183,6 +186,11 @@ public class UIManager : Singleton<UIManager>
         {
             banditAmbushButton.onClick.RemoveAllListeners();
             banditAmbushButton.onClick.AddListener(OnBanditAmbushButtonClicked);
+        }
+        if (quitGameButton != null)
+        {
+            quitGameButton.onClick.RemoveAllListeners();
+            quitGameButton.onClick.AddListener(OnQuitGameButtonClicked);
         }
 
         listenersSetup = true;
@@ -354,7 +362,7 @@ public class UIManager : Singleton<UIManager>
             kingPathConfirmButton.interactable = InteractionManager.Instance.CanConfirmPath();
         }
     }
-    
+
     public void UpdateKingWorkerBuyButtonText()
     {
         /*
@@ -516,6 +524,13 @@ public class UIManager : Singleton<UIManager>
         UpdateKingPathConfirmButtonText();
         UpdateKingWorkerBuyButtonText();
         UpdateWorkerText();
+    }
+
+    private void OnQuitGameButtonClicked()
+    {
+        Debug.Log("Quit Game button clicked!");
+
+        InteractionManager.Instance.QuitGameRequest();
     }
 
     private void OnBanditAmbushButtonClicked()

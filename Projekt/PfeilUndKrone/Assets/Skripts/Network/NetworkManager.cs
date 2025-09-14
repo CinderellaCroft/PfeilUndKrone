@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
-    private int PORT = 8081;
+    private int PORT = 8080;
     private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
@@ -56,19 +56,19 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             await connectionTcs.Task;
             return;
         }
-        
+
         // Use a TaskCompletionSource for a reliable async connection
         connectionTcs = new TaskCompletionSource<bool>();
-        
+
         // Start the connection attempt (fire and forget)
         // The result will be handled by our OnOpen/OnError events
         _ = this.websocket.Connect();
-        
+
         Debug.Log("NM Connect() -> Awaiting connection result...");
-        
+
         // Await the result from our TaskCompletionSource
         bool success = await connectionTcs.Task;
-        
+
         Debug.Log($"NM Connect() completed. Success: {success}, State: {this.websocket.State}");
     }
 
@@ -192,7 +192,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                     case "lobby_created":
                         var msg = JsonUtility.FromJson<ServerMessageLobbyCreated>(messageString);
 
-                        string lobbyId = msg.payload.lobby_id; 
+                        string lobbyId = msg.payload.lobby_id;
 
                         Debug.Log($"Created lobby: {lobbyId}");
                         // Raise our new event instead of calling UIManager directly
@@ -453,7 +453,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         string reason = gameOverMsg.payload.reason;
 
                         Debug.LogWarning("--- RECEIVED 'game_over'. Displaying end panel. ---");
-                        Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, Reason={reason}");
+                        Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, ={reason}");
 
                         // CRITICAL: Store role immediately to prevent any interference
                         Debug.Log($"[NetworkManager] GameManager.Instance: {GameManager.Instance}");
