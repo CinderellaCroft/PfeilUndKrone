@@ -44,6 +44,9 @@ public class InteractionManager : Singleton<InteractionManager>
     private bool hasHoverEdge;
     private HexEdge hoverEdge;
 
+    [Header("Ambush collision tuning")]
+    [SerializeField] private float ambushHitRadius = 0.25f;
+
     private InteractionMode currentMode = InteractionMode.None;
 
     // Multiple paths system for King
@@ -1216,18 +1219,16 @@ public class InteractionManager : Singleton<InteractionManager>
         var curr = workerObj.transform.position;
         var targ = serverPathWorld[pathStep];
 
-        // Kollisionserkennung - wir speichern die Anzahl der Orbs vor der Prüfung
-        int orbCountBefore = animationAmbushOrbObjects.Count;
-        CheckCollisionWithOrbs(curr);
-        int orbCountAfter = animationAmbushOrbObjects.Count;
+        float stepDist = workerSpeed * Time.deltaTime;
+        var next = Vector3.MoveTowards(curr, targ, stepDist);
 
-        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker komplett zerstören
-        if (orbCountAfter < orbCountBefore)
+        // Swept collision along segment [curr -> next]
+        if (CheckAmbushCollisionAlongSegment(curr, next))
         {
             isMoving = false;
             Destroy(workerObj);
             workerObj = null;
-            Debug.Log("🪦 Legacy worker destroyed by ambush!");
+            Debug.Log("🪦 Legacy worker destroyed by ambush (swept)!");
             return;
         }
 
@@ -1239,7 +1240,7 @@ public class InteractionManager : Singleton<InteractionManager>
                 GridVisualsManager.Instance.SetEdgeVisible(edge, true);
         }
 
-        if (Vector3.Distance(curr, targ) < 0.01f)
+        if (Vector3.Distance(next, targ) < 0.01f)
         {
             pathStep++;
             if (pathStep >= serverPathWorld.Count)
@@ -1250,7 +1251,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
         else
         {
-            workerObj.transform.position = Vector3.MoveTowards(curr, targ, workerSpeed * Time.deltaTime);
+            workerObj.transform.position = next;
         }
     }
 
@@ -1269,13 +1270,11 @@ public class InteractionManager : Singleton<InteractionManager>
         var curr = workerObj.transform.position;
         var targ = pathWorld[workerPathSteps[workerIndex]];
 
-        // Kollisionserkennung - wir speichern die Anzahl der Orbs vor der Prüfung
-        int orbCountBefore = animationAmbushOrbObjects.Count;
-        CheckCollisionWithOrbs(curr);
-        int orbCountAfter = animationAmbushOrbObjects.Count;
+        float stepDist = workerSpeed * Time.deltaTime;
+        var next = Vector3.MoveTowards(curr, targ, stepDist);
 
-        // Wenn eine Kollision erkannt wurde (eine Kugel wurde entfernt), Worker komplett entfernen
-        if (orbCountAfter < orbCountBefore)
+        // Swept collision along segment [curr -> next]
+        if (CheckAmbushCollisionAlongSegment(curr, next))
         {
             workerMovingStates[workerIndex] = false;
             Destroy(workerObj);
@@ -1298,7 +1297,7 @@ public class InteractionManager : Singleton<InteractionManager>
                 GridVisualsManager.Instance.SetEdgeVisible(edge, true);
         }
 
-        if (Vector3.Distance(curr, targ) < 0.01f)
+        if (Vector3.Distance(next, targ) < 0.01f)
         {
             workerPathSteps[workerIndex]++;
             if (workerPathSteps[workerIndex] >= pathWorld.Count)
@@ -1309,7 +1308,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
         else
         {
-            workerObj.transform.position = Vector3.MoveTowards(curr, targ, workerSpeed * Time.deltaTime);
+            workerObj.transform.position = Vector3.MoveTowards(next, targ, workerSpeed * Time.deltaTime);
         }
     }
 
@@ -1392,6 +1391,29 @@ public class InteractionManager : Singleton<InteractionManager>
                 }
             }
         }
+    }
+
+    // Prüft, ob das Bewegungssegment [from -> to] eine Ambush-Kugel schneidet.
+    // Nutzt die bereits vorhandene DistancePointSegmentXZ(...).
+    private bool CheckAmbushCollisionAlongSegment(Vector3 from, Vector3 to)
+    {
+        for (int i = animationAmbushOrbObjects.Count - 1; i >= 0; i--)
+        {
+            var orb = animationAmbushOrbObjects[i];
+            if (orb == null) continue;
+
+            Vector3 orbPos = orb.transform.position;
+            // Distanz der Kugelmitte zum Bewegungssegment im XZ
+            float d = DistancePointSegmentXZ(orbPos, from, to);
+            if (d <= ambushHitRadius)
+            {
+                // Treffer → Orb entfernen und Kollision melden
+                Destroy(orb);
+                animationAmbushOrbObjects.RemoveAt(i);
+                return true;
+            }
+        }
+        return false;
     }
 
     IEnumerable<HexVertex> GetNeighborVertices(HexVertex v)
