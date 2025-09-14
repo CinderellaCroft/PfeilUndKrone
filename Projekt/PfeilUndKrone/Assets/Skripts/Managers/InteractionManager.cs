@@ -299,6 +299,8 @@ public class InteractionManager : Singleton<InteractionManager>
 
         foreach (var edge in gridGen.Model.AllEdges)
         {
+            if (EdgeBothEndsSpecial(edge)) continue;
+
             var endpoints = edge.GetVertexEndpoints();
             Vector3 a = endpoints[0].ToWorld(gridGen.hexRadius);
             Vector3 b = endpoints[1].ToWorld(gridGen.hexRadius);
@@ -350,6 +352,21 @@ public class InteractionManager : Singleton<InteractionManager>
 #else
     return Input.GetMouseButtonDown(0);
 #endif
+    }
+
+    private static bool IsSpecialField(FieldType f)
+    => f == FieldType.Moat || f == FieldType.Castle;
+
+    private bool EdgeBothEndsSpecial(HexEdge e)
+    {
+        var map = GameManager.Instance?.GetResourceMap();
+        if (map == null) return false;
+
+        if (!map.TryGetValue(e.Hex, out var a)) return false;
+        var nb = e.GetNeighbor(); // zweites Hex der Edge
+        if (!map.TryGetValue(nb, out var b)) return false;
+
+        return IsSpecialField(a) && IsSpecialField(b);
     }
 
     void UpdateVertexHighlightsForAmbushVertices(HexVertex vertex)
@@ -1389,6 +1406,13 @@ public class InteractionManager : Singleton<InteractionManager>
         }
         else
         {
+            if (EdgeBothEndsSpecial(e))
+            {
+                Debug.LogError("❌ Error: Cannot place ambush in the moat.");
+                UIManager.Instance.UpdateInfoText("Error: Ambushes can't be placed in the moat.");
+                return;
+            }
+
             if (placedAmbushes.Count >= maxAmbushes)
             {
                 Debug.LogError($"❌ Error: Maximum ambushes ({maxAmbushes}) already placed!");
