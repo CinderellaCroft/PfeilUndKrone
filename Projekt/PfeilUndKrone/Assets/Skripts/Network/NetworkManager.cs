@@ -581,23 +581,6 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     }
 
     /// <summary>
-    /// Called by UI to join a random game.
-    /// </summary>
-    public void JoinRandomLobby()
-    {
-        Debug.Log($"JoinRandomLobby() called. IsConnected: {IsConnected}, WebSocket State: {websocket?.State}");
-        if (IsConnected)
-        {
-            Debug.Log("NM -> Sending 'join_random'");
-            Send("join_random", new object());
-        }
-        else
-        {
-            Debug.LogError($"Cannot join random lobby, not connected! WebSocket State: {websocket?.State}");
-        }
-    }
-
-    /// <summary>
     /// Called by UI to create a new private lobby.
     /// </summary>
     public void CreatePrivateLobby()
