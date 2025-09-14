@@ -11,7 +11,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
     private int PORT = 8080;
-    private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
+    private String IP = "localhost";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
@@ -453,17 +453,17 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         string reason = gameOverMsg.payload.reason;
 
                         Debug.LogWarning("--- RECEIVED 'game_over'. Displaying end panel. ---");
-                        Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, ={reason}");
+                        Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, ={reason}"); //winner correct
 
                         // CRITICAL: Store role immediately to prevent any interference
                         Debug.Log($"[NetworkManager] GameManager.Instance: {GameManager.Instance}");
                         Debug.Log($"[NetworkManager] GameManager.Instance.GetHashCode(): {GameManager.Instance.GetHashCode()}");
 
-                        PlayerRole myCurrentRole = GameManager.Instance.MyRole;
+                        PlayerRole myCurrentRole = GameManager.Instance.MyRole; //my role at time when endgame() hasnt been called yet
                         string myCurrentRoleString = myCurrentRole.ToString();
 
-                        Debug.Log($"[NetworkManager] My Role: {myCurrentRole}, My Role String: '{myCurrentRoleString}'");
-                        Debug.Log($"[NetworkManager] Winner String: '{winner}'");
+                        Debug.Log($"[NetworkManager] My Role: {myCurrentRole}, My Role String: '{myCurrentRoleString}'"); //NetworkManager] My Role: King, My Role String: 'King' printed correctly
+                        Debug.Log($"[NetworkManager] Winner String: '{winner}'"); // 'King' correct
 
                         // IMPORTANT: Determine winner using stored values, not live GameManager state
                         bool amIWinner = myCurrentRoleString == winner;

@@ -28,6 +28,8 @@ public class GameManager : Singleton<GameManager>
 
     private bool subscribed = false;
 
+    public bool quitGameCalled = false;
+
     protected override void Awake()
     {
         Debug.Log("[GameManager] Awake() START");
@@ -162,6 +164,7 @@ public class GameManager : Singleton<GameManager>
         currentRoundNumber = 0;
         IsGameOver = false;
         resourceMap?.Clear();
+        quitGameCalled = false;
 
         // Reset managers
         if (visualsManager != null) visualsManager.ResetForNewGame();

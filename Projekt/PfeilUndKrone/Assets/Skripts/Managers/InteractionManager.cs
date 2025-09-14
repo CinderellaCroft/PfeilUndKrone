@@ -93,6 +93,7 @@ public class InteractionManager : Singleton<InteractionManager>
     private List<HexVertex> serverPathVertices = new();
     private List<List<HexVertex>> allServerPathsVertices = new();
 
+
     protected override void Awake()
     {
         base.Awake();
@@ -693,8 +694,19 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
         }
         var dummyPayload = new { };
-        net.Send("quit_game", dummyPayload);
-        Debug.Log($"Quit Game request sent");
+        if (!GameManager.Instance.quitGameCalled)
+        {
+            net.Send("quit_game", dummyPayload);
+            Debug.Log($"Quit Game request sent");
+            GameManager.Instance.quitGameCalled = true;
+        }
+        else
+        {
+            Debug.Log("InteractionManager: GameManager.Instance.quitGameCalled is already true");
+        }
+
+
+
 
     }
 

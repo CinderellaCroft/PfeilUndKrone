@@ -27,6 +27,9 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private GameObject winnerPanel; // Assign the WinnerPanel in the Inspector
     [SerializeField] private GameObject loserPanel;  // Assign the LoserPanel in the Inspector
 
+
+
+
     protected override void Awake()
     {
         base.Awake();
@@ -117,6 +120,7 @@ public class UIManager : Singleton<UIManager>
         if (kingWorkerBuyButton == null) Debug.LogWarning("kingWorkerBuyButton is not assigned in UIManager.", this.gameObject);
         if (banditAmbushButton == null) Debug.LogWarning("banditAmbushButton is not assigned in UIManager.", this.gameObject);
         if (quitGameButton == null) Debug.LogWarning("quitGameButton is not assigned in UIManager.", this.gameObject);
+
 
         // NEW: Validate end game panels
         if (winnerPanel == null || loserPanel == null)
@@ -528,8 +532,8 @@ public class UIManager : Singleton<UIManager>
 
     private void OnQuitGameButtonClicked()
     {
-        Debug.Log("Quit Game button clicked!");
 
+        Debug.Log("Quit Game button clicked!");
         InteractionManager.Instance.QuitGameRequest();
     }
 
