@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-//using UnityEngine.SceneManagement;
+using UnityEngine.SceneManagement;
 
 public class UIManager : Singleton<UIManager>
 {
@@ -23,9 +23,6 @@ public class UIManager : Singleton<UIManager>
     [SerializeField] private Button banditAmbushButton;
     [SerializeField] private Button quitGameButton;
 
-    [Header("End Game Panels")]
-    [SerializeField] private GameObject winnerPanel; // Assign the WinnerPanel in the Inspector
-    [SerializeField] private GameObject loserPanel;  // Assign the LoserPanel in the Inspector
 
 
     [Header("Floating Text")]
@@ -41,9 +38,6 @@ public class UIManager : Singleton<UIManager>
         base.Awake();
         ValidateReferences();
 
-        // Ensure end-game panels are hidden at the start
-        if (winnerPanel != null) winnerPanel.SetActive(false);
-        if (loserPanel != null) loserPanel.SetActive(false);
 
         // Initialize previous resource values
         previousGold = 0;
@@ -73,8 +67,6 @@ public class UIManager : Singleton<UIManager>
         banditAmbushButton = b.banditAmbushButton;
         quitGameButton = b.quitGameButton;
 
-        winnerPanel = b.winnerPanel;
-        loserPanel = b.loserPanel;
 
         Debug.Log("[UIManager] All references bound from MainBindings");
 
@@ -105,8 +97,6 @@ public class UIManager : Singleton<UIManager>
         kingPathButton = GameObject.FindWithTag("WorkerButton")?.GetComponent<Button>();
         banditAmbushButton = GameObject.FindWithTag("AmbushButton")?.GetComponent<Button>();
 
-        winnerPanel = GameObject.FindWithTag("WinnerPanel");
-        loserPanel = GameObject.FindWithTag("LoserPanel");
     }
 
     private void ValidateReferences()
@@ -133,15 +123,6 @@ public class UIManager : Singleton<UIManager>
         if (quitGameButton == null) Debug.LogWarning("quitGameButton is not assigned in UIManager.", this.gameObject);
 
 
-        // NEW: Validate end game panels
-        if (winnerPanel == null || loserPanel == null)
-        {
-            Debug.LogError("---!!! CRITICAL SETUP ERROR IN UIMANAGER !!!---", this.gameObject);
-            Debug.LogError("--> The WinnerPanel or LoserPanel is NOT assigned in the Inspector.", this.gameObject);
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#endif
-        }
     }
 
     void Start()
@@ -214,14 +195,28 @@ public class UIManager : Singleton<UIManager>
 
     public void UpdateRoleText(PlayerRole role)
     {
-        roleText.text = $"{role}";
-        // Update worker text when role changes
-        UpdateWorkerText();
+        if (roleText != null)
+        {
+            roleText.text = $"{role}";
+            // Update worker text when role changes
+            UpdateWorkerText();
+        }
+        else
+        {
+            Debug.LogWarning("[UIManager] UpdateRoleText called but roleText is null - UI not yet bound");
+        }
     }
 
     public void UpdateTurnStatus(string status)
     {
-        turnStatusText.text = $"Turn:\n{status}";
+        if (turnStatusText != null)
+        {
+            turnStatusText.text = $"Turn:\n{status}";
+        }
+        else
+        {
+            Debug.LogWarning("[UIManager] UpdateTurnStatus called but turnStatusText is null - UI not yet bound");
+        }
     }
 
     public void UpdateRoundNumber(int roundNumber)
@@ -238,28 +233,48 @@ public class UIManager : Singleton<UIManager>
 
     public void UpdateInfoText(string info)
     {
-        infoText.text = info;
+        if (infoText != null)
+        {
+            infoText.text = info;
+        }
+        else
+        {
+            Debug.LogWarning("[UIManager] UpdateInfoText called but infoText is null - UI not yet bound");
+        }
     }
 
     public void UpdateResourcesText(int gold, int wood, int grain)
     {
-        // Show floating text for resource changes
-        if (gold != previousGold)
+        if (resourcesText != null)
         {
-            ShowFloatingText(gold - previousGold, goldTextContainer);
+            // Show floating text for resource changes
+            if (gold != previousGold)
+            {
+                ShowFloatingText(gold - previousGold, goldTextContainer);
+            }
+            if (wood != previousWood)
+            {
+                ShowFloatingText(wood - previousWood, woodTextContainer);
+            }
+            if (grain != previousGrain)
+            {
+                ShowFloatingText(grain - previousGrain, grainTextContainer);
+            }
+
+            resourcesText.text = $"          : {gold}           : {wood}           : {grain}";
+
+            // Update button states when resources change
+            UpdateKingWorkerBuyButtonText();
+            UpdateBanditAmbushButtonText();
+            // Update worker text when resources change (for King)
+            UpdateWorkerText();
         }
-        if (wood != previousWood)
+        else
         {
-            ShowFloatingText(wood - previousWood, woodTextContainer);
-        }
-        if (grain != previousGrain)
-        {
-            ShowFloatingText(grain - previousGrain, grainTextContainer);
+            Debug.LogWarning("[UIManager] UpdateResourcesText called but resourcesText is null - UI not yet bound");
         }
 
-        resourcesText.text = $"          : {gold}           : {wood}           : {grain}";
-
-        // Update previous resource values
+        // Always update previous resource values and InteractionManager resources
         previousGold = gold;
         previousWood = wood;
         previousGrain = grain;
@@ -268,11 +283,6 @@ public class UIManager : Singleton<UIManager>
         if (InteractionManager.Instance != null)
         {
             InteractionManager.Instance.UpdateResources(gold, wood, grain);
-            // Update button states when resources change
-            UpdateKingWorkerBuyButtonText();
-            UpdateBanditAmbushButtonText();
-            // Update worker text when resources change (for King)
-            UpdateWorkerText();
         }
     }
 
@@ -684,30 +694,61 @@ public class UIManager : Singleton<UIManager>
 
     public void ShowEndGamePanel(bool didIWin)
     {
-        // Hide all the main game UI
-        SetDoneButtonActive(false);
-        SetKingButtonsActive(false);
-        SetBanditButtonsActive(false);
+        Debug.Log($"[UIManager] ShowEndGamePanel called - didIWin: {didIWin}");
 
-        roleText.gameObject.SetActive(false);
-        turnStatusText.gameObject.SetActive(false);
-        roundNumberText.gameObject.SetActive(false);
-        infoText.gameObject.SetActive(false);
-        resourcesText.gameObject.SetActive(false);
-        workerText.gameObject.SetActive(false);
+        // CLEANUP BEFORE SCENE TRANSITION
+        Debug.Log("[UIManager] Performing cleanup before scene transition...");
 
-        // Show the appropriate panel
+        // 1. Reset GameManager state
+        if (GameManager.Instance != null)
+        {
+            Debug.Log("[UIManager] Resetting GameManager state...");
+            GameManager.Instance.ResetGameStateOnly();
+        }
+
+        // 2. Reset InteractionManager state
+        if (InteractionManager.Instance != null)
+        {
+            Debug.Log("[UIManager] Resetting InteractionManager state...");
+            InteractionManager.Instance.ForceCompleteReset();
+        }
+
+        // 3. Disconnect from server
+        if (NetworkManager.Instance != null)
+        {
+            Debug.Log("[UIManager] Disconnecting from server...");
+            _ = NetworkManager.Instance.Disconnect();
+        }
+
+        // 4. Clear UI references (they'll be rebound when returning to main scene)
+        Debug.Log("[UIManager] Clearing UI references...");
+        roleText = null;
+        turnStatusText = null;
+        roundNumberText = null;
+        infoText = null;
+        resourcesText = null;
+        workerText = null;
+        doneButton = null;
+        kingPathButton = null;
+        kingPathConfirmButton = null;
+        kingWorkerBuyButton = null;
+        kingWagonUpgradeButton = null;
+        kingWagonPathButton = null;
+        banditAmbushButton = null;
+        quitGameButton = null;
+
+        Debug.Log("[UIManager] Cleanup complete, loading scene...");
+
+        // 5. Load the appropriate scene
         if (didIWin)
         {
-            winnerPanel.SetActive(true);
-            loserPanel.SetActive(false);
-            Debug.Log("👑 GAME OVER - YOU WIN! 👑");
+            Debug.Log("👑 GAME OVER - YOU WIN! 👑 Loading WinnerScreen...");
+            SceneManager.LoadScene("WinnerScreen");
         }
         else
         {
-            winnerPanel.SetActive(false);
-            loserPanel.SetActive(true);
-            Debug.Log("💀 GAME OVER - YOU LOSE! 💀");
+            Debug.Log("💀 GAME OVER - YOU LOSE! 💀 Loading LoserScreen...");
+            SceneManager.LoadScene("LoserScreen");
         }
     }
 
@@ -738,9 +779,7 @@ public class UIManager : Singleton<UIManager>
         SetKingButtonsActive(false);
         SetBanditButtonsActive(false);
 
-        // Hide end game panels (with null checks)
-        if (winnerPanel != null) winnerPanel.SetActive(false);
-        if (loserPanel != null) loserPanel.SetActive(false);
+        // Reset UI elements (with null checks)
 
         // Show main game UI elements (with null checks)
         if (roleText != null && roleText.gameObject != null) roleText.gameObject.SetActive(true);

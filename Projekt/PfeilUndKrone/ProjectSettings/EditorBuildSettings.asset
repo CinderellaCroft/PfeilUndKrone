@@ -8,12 +8,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/TitleScreen.unity
     guid: a35c321b913cb224d9334ba84c29efa4
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/StartScene.unity
     guid: a9afcedc792eaac41921cdf81ef55604
   - enabled: 1
     path: Assets/Scenes/Main.unity
     guid: 3dc89048fc55ed44795fdabe99c52e2b
+  - enabled: 1
+    path: Assets/Scenes/WinnerScreen.unity
+    guid: aa070900259091a4a9ef5099eca85cac
+  - enabled: 1
+    path: Assets/Scenes/LoserScreen.unity
+    guid: 88f33056806e5554c990c4f13f5c75e0
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}
   m_UseUCBPForAssetBundles: 0

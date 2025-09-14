@@ -25,8 +25,6 @@ public class MainBindings : MonoBehaviour
 
     public Button quitGameButton;
 
-    [Header("Panels")]
-    public GameObject winnerPanel, loserPanel;
 
     //GridVisualManager references
     // GridVisualsManager refs
