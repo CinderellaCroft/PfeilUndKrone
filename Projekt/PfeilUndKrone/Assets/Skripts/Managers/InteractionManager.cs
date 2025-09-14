@@ -1052,7 +1052,10 @@ public class InteractionManager : Singleton<InteractionManager>
 
             selectedVertices.Add(v);
             pathCreationState = PathCreationState.Creating;
-            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v));
+
+            // End-Vertices (Zentrum) zunächst verbergen/verbieten
+            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v).Except(centralVertices));
+            UpdateEndVertexHighlighting();
 
             Debug.Log($"✅ Start vertex selected: ({v.Hex.Q},{v.Hex.R}) Direction: {v.Direction}");
             return;
@@ -1078,7 +1081,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         selectedVertices.Add(v);
         ToggleVertexHighlight(v);
-        if (centralVertices.Contains(v))
+        if (centralVertices.Contains(v) && selectedVertices.Count >= 3)
         {
             pathComplete = true;
             pathCreationState = PathCreationState.ReadyToConfirm;
@@ -1088,7 +1091,30 @@ public class InteractionManager : Singleton<InteractionManager>
             UIManager.Instance.UpdateKingPathButtonText();
             UIManager.Instance.UpdateKingPathConfirmButtonText();
         }
-        validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v).Except(selectedVertices));
+        else if (centralVertices.Contains(v))
+        {
+            UIManager.Instance.UpdateInfoText("Path must be longer than 1 edge.");
+        }
+        var candidates = GetNeighborVertices(v).Except(selectedVertices);
+        if (selectedVertices.Count < 3)
+            candidates = candidates.Except(centralVertices);
+        validNextVertices = new HashSet<HexVertex>(candidates);
+        UpdateEndVertexHighlighting();
+    }
+
+    /// <summary>
+    /// Highlightet/unhighlightet die Castle-End-Vertices abhängig von der aktuellen Pfadlänge.
+    /// End-Vertices erst zeigen, wenn Pfad > 1 Kante (also >= 3 Vertices) hat.
+    /// </summary>
+    private void UpdateEndVertexHighlighting()
+    {
+        bool showEnds = pathCreationState == PathCreationState.Creating && selectedVertices.Count >= 3;
+        foreach (var cv in centralVertices)
+        {
+            bool isHighlighted = highlightedVertices.Contains(cv);
+            if (showEnds && !isHighlighted) ToggleVertexHighlight(cv);
+            else if (!showEnds && isHighlighted) ToggleVertexHighlight(cv);
+        }
     }
 
     public bool SubmitPath()
