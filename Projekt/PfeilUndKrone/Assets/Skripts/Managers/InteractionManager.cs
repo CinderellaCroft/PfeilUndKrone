@@ -104,6 +104,7 @@ public class InteractionManager : Singleton<InteractionManager>
     private List<HexVertex> serverPathVertices = new();
     private List<List<HexVertex>> allServerPathsVertices = new();
 
+
     protected override void Awake()
     {
         base.Awake();
@@ -796,6 +797,31 @@ public class InteractionManager : Singleton<InteractionManager>
     public bool CanUpgradeWorkerToWagon()
     {
         return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0;
+    }
+
+    public void QuitGameRequest()
+    {
+        if (net == null)
+        {
+            Debug.LogWarning("[InteractionManager] net is null in BuyWorker, trying to get NetworkManager.Instance");
+            net = NetworkManager.Instance;
+            Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
+        }
+        var dummyPayload = new { };
+        if (!GameManager.Instance.quitGameCalled)
+        {
+            net.Send("quit_game", dummyPayload);
+            Debug.Log($"Quit Game request sent");
+            GameManager.Instance.quitGameCalled = true;
+        }
+        else
+        {
+            Debug.Log("InteractionManager: GameManager.Instance.quitGameCalled is already true");
+        }
+
+
+
+
     }
 
     public void UpgradeWorkerToWagon()
