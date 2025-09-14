@@ -456,20 +456,21 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         Debug.LogWarning("--- RECEIVED 'game_over'. Displaying end panel. ---");
                         Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, ={reason}"); //winner correct
 
-                        // CRITICAL: Store role immediately to prevent any interference
+                        // CRITICAL: Store role immediately BEFORE calling EndGame() to prevent role clearing
                         Debug.Log($"[NetworkManager] GameManager.Instance: {GameManager.Instance}");
                         Debug.Log($"[NetworkManager] GameManager.Instance.GetHashCode(): {GameManager.Instance.GetHashCode()}");
 
-                        PlayerRole myCurrentRole = GameManager.Instance.MyRole; //my role at time when endgame() hasnt been called yet
+                        PlayerRole myCurrentRole = GameManager.Instance.MyRole; //MUST get role before EndGame() clears it
                         string myCurrentRoleString = myCurrentRole.ToString();
 
-                        Debug.Log($"[NetworkManager] My Role: {myCurrentRole}, My Role String: '{myCurrentRoleString}'"); //NetworkManager] My Role: King, My Role String: 'King' printed correctly
-                        Debug.Log($"[NetworkManager] Winner String: '{winner}'"); // 'King' correct
+                        Debug.Log($"[NetworkManager] My Role: {myCurrentRole}, My Role String: '{myCurrentRoleString}'");
+                        Debug.Log($"[NetworkManager] Winner String: '{winner}'");
 
-                        // IMPORTANT: Determine winner using stored values, not live GameManager state
+                        // IMPORTANT: Determine winner using stored values before EndGame() clears everything
                         bool amIWinner = myCurrentRoleString == winner;
                         Debug.Log($"[NetworkManager] Winner determination (using stored role): Am I Winner? {amIWinner}");
 
+                        // Call EndGame() AFTER storing winner determination
                         GameManager.Instance.EndGame();
 
                         // Double-check what role is after EndGame (for debugging)
