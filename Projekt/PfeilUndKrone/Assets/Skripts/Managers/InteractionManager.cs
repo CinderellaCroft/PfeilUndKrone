@@ -256,13 +256,8 @@ public class InteractionManager : Singleton<InteractionManager>
 
         if (currentMode == InteractionMode.AmbushPlacement)
         {
-            UpdateAmbushHoverEdge();
-            if (LeftClickDown() && hasHoverEdge)
-            {
-                var endpoints = hoverEdge.GetVertexEndpoints();
-                OnAmbushEdgeLeftClick(endpoints[0], endpoints[1]);
-            }
-            DrawAmbushLines();
+            // Edge-based hover system removed - now using Orb-based preview system
+            // The preview orbs are handled by OnAmbushEdgeHoverEnter/Exit in the collider system
         }
     }
 
@@ -426,58 +421,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
-    void UpdateAmbushHoverEdge()
-    {
-        if (!isInAmbushPlacementMode)
-        {
-            if (hasHoverEdge) { GridVisualsManager.Instance.SetEdgeVisible(hoverEdge, false); hasHoverEdge = false; }
-            return;
-        }
-
-        var cam = Camera.main;
-        if (cam == null) return;
-
-        var screenPos = GetPointerPosition();
-        var ray = cam.ScreenPointToRay(screenPos);
-        var plane = new Plane(Vector3.up, Vector3.zero);
-        if (!plane.Raycast(ray, out float enter))
-        {
-            if (hasHoverEdge) { GridVisualsManager.Instance.SetEdgeVisible(hoverEdge, false); hasHoverEdge = false; }
-            return;
-        }
-        Vector3 hit = ray.GetPoint(enter);
-
-        HexEdge bestEdge = default;
-        float bestDist = float.MaxValue;
-
-        foreach (var edge in gridGen.Model.AllEdges)
-        {
-            if (EdgeBothEndsSpecial(edge)) continue;
-
-            var endpoints = edge.GetVertexEndpoints();
-            Vector3 a = endpoints[0].ToWorld(gridGen.hexRadius);
-            Vector3 b = endpoints[1].ToWorld(gridGen.hexRadius);
-            float d = DistancePointSegmentXZ(hit, a, b);
-            if (d < bestDist) { bestDist = d; bestEdge = edge; }
-        }
-
-        float maxD = Mathf.Max(edgeHoverMaxDistanceWorld, 0.001f);
-        bool within = bestDist <= maxD;
-
-        if (!within)
-        {
-            if (hasHoverEdge) { GridVisualsManager.Instance.SetEdgeVisible(hoverEdge, false); hasHoverEdge = false; }
-            return;
-        }
-
-        if (!hasHoverEdge || !hoverEdge.Equals(bestEdge))
-        {
-            if (hasHoverEdge) GridVisualsManager.Instance.SetEdgeVisible(hoverEdge, false);
-            hoverEdge = bestEdge;
-            hasHoverEdge = true;
-            GridVisualsManager.Instance.SetEdgeVisible(hoverEdge, true);
-        }
-    }
+    // Old UpdateAmbushHoverEdge() method removed - now using Orb-based preview system with edge colliders
 
     static float DistancePointSegmentXZ(Vector3 p, Vector3 a, Vector3 b)
     {
@@ -2194,13 +2138,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return true;
     }
 
-    void DrawAmbushLines()
-    {
-        if (!ambushStart.Equals(default))
-        {
-            // Draw preview line logic here if needed
-        }
-    }
+    // Old DrawAmbushLines() method removed - now using Orb-based preview system
 
     // === ANIMATION AND DISPLAY ===
     public void DisplayAnimationOrbs(List<NetworkingDTOs.AmbushEdge> banditAmbushes)
