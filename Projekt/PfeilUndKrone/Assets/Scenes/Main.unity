@@ -672,7 +672,7 @@ MonoBehaviour:
   - {fileID: 5007065612845647104, guid: 9121f7922b20f24408d368931e9dc9db, type: 3}
   - {fileID: 1873717335276492811, guid: 82b1caf19fd2daf44bff09e220aabe01, type: 3}
   desertPrefab: {fileID: 4272260028409055479, guid: 8632b8d5a438e6e44b3b6a9d31c0e57a, type: 3}
-  vertexMarkerPrefab: {fileID: 4584628830818376186, guid: 180a620930ade454c8bcf5c0e4f01742, type: 3}
+  vertexMarkerPrefab: {fileID: 8526263050464116477, guid: 377add571035fe84188a0d4ff7b5eddb, type: 3}
   edgeMarkerPrefab: {fileID: 919132149155446097, guid: 6ba63ef5d1965234781cad873ab556ee, type: 3}
   moatRotationOffsetY: 0
 --- !u!1 &653193444

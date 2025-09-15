@@ -103,6 +103,10 @@ public class InteractionManager : Singleton<InteractionManager>
     private HashSet<HexVertex> highlightedVertices = new();
     private Color originalVertexColor = Color.red;
     private Color highlightColor = Color.magenta;
+    private Dictionary<HexVertex, Material[]> originalVertexMaterials = new();
+
+    private Dictionary<HexVertex, Material[]> gameStartVertexMaterials = new();
+    private bool gameStartMaterialsSaved = false;
 
     // Path highlighting system
     private List<HexVertex> serverPathVertices = new();
@@ -224,6 +228,9 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void EnableInteraction(PlayerRole role)
     {
+        SaveGameStartVertexMaterials();
+        ResetAllVertexesToGameStart();
+
         if (role == PlayerRole.King) currentMode = InteractionMode.PathSelection;
         else if (role == PlayerRole.Bandit)
         {
@@ -327,31 +334,108 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // === VERTEX MATERIAL HELPER ===
+    void SetVertexColor(HexVertex vertex, Color color)
+    {
+        var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
+        if (vertexGO != null)
+        {
+            var renderer = vertexGO.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                // Store original materials if not already stored (use sharedMaterials to get the originals)
+                if (!originalVertexMaterials.ContainsKey(vertex))
+                {
+                    originalVertexMaterials[vertex] = renderer.sharedMaterials.ToArray();
+                }
+
+                // Create material instances and update their colors
+                Material[] materialInstances = new Material[renderer.materials.Length];
+                for (int i = 0; i < renderer.materials.Length; i++)
+                {
+                    materialInstances[i] = new Material(originalVertexMaterials[vertex][i]);
+                    materialInstances[i].color = color;
+                }
+                renderer.materials = materialInstances;
+            }
+        }
+    }
+
+    void RestoreVertexOriginalMaterials(HexVertex vertex)
+    {
+        var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
+        if (vertexGO != null && originalVertexMaterials.ContainsKey(vertex))
+        {
+            var renderer = vertexGO.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                // Restore original shared materials
+                renderer.materials = originalVertexMaterials[vertex];
+            }
+        }
+    }
+
+    void ClearStoredVertexMaterials()
+    {
+        originalVertexMaterials.Clear();
+    }
+
+    void SaveGameStartVertexMaterials()
+    {
+        if (gameStartMaterialsSaved) return;
+
+        gameStartVertexMaterials.Clear();
+
+        if (GridVisualsManager.Instance?.gridGenerator?.Model?.AllVertices != null)
+        {
+            foreach (var vertex in GridVisualsManager.Instance.gridGenerator.Model.AllVertices)
+            {
+                var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
+                if (vertexGO != null)
+                {
+                    var renderer = vertexGO.GetComponent<Renderer>();
+                    if (renderer != null)
+                    {
+                        gameStartVertexMaterials[vertex] = renderer.sharedMaterials.ToArray();
+                    }
+                }
+            }
+            gameStartMaterialsSaved = true;
+        }
+    }
+
+    void ResetAllVertexesToGameStart()
+    {
+        if (!gameStartMaterialsSaved || gameStartVertexMaterials.Count == 0) return;
+
+        foreach (var kvp in gameStartVertexMaterials)
+        {
+            var vertex = kvp.Key;
+            var materials = kvp.Value;
+
+            var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
+            if (vertexGO != null)
+            {
+                var renderer = vertexGO.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    renderer.sharedMaterials = materials;
+                }
+            }
+        }
+    }
+
     // === VERTEX HIGHLIGHTING SYSTEM ===
     void ToggleVertexHighlight(HexVertex vertex)
     {
-        var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-        if (vertexGO == null)
-        {
-            Debug.LogError($"❌ Error: Could not find GameObject for vertex {vertex}");
-            return;
-        }
-
-        var renderer = vertexGO.GetComponent<Renderer>();
-        if (renderer == null)
-        {
-            Debug.LogError($"❌ Error: No Renderer found on vertex GameObject {vertex}");
-            return;
-        }
-
         if (highlightedVertices.Contains(vertex))
         {
-            renderer.material.color = originalVertexColor;
+            RestoreVertexOriginalMaterials(vertex);
             highlightedVertices.Remove(vertex);
         }
         else
         {
-            renderer.material.color = highlightColor;
+            SetVertexColor(vertex, highlightColor);
             highlightedVertices.Add(vertex);
         }
     }
@@ -360,18 +444,9 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         foreach (var vertex in highlightedVertices.ToList())
         {
-            var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-            if (vertexGO != null)
-            {
-                var renderer = vertexGO.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    renderer.material.color = originalVertexColor;
-                }
-            }
+            RestoreVertexOriginalMaterials(vertex);
         }
         highlightedVertices.Clear();
-        Debug.Log("All vertex highlights reset to original color");
     }
 
     void ResetVertexHighlightsKeepAmbushVertices()
@@ -389,15 +464,7 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             if (!ambushVertices.Contains(vertex))
             {
-                var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-                if (vertexGO != null)
-                {
-                    var renderer = vertexGO.GetComponent<Renderer>();
-                    if (renderer != null)
-                    {
-                        renderer.material.color = originalVertexColor;
-                    }
-                }
+                RestoreVertexOriginalMaterials(vertex);
                 highlightedVertices.Remove(vertex);
             }
         }
@@ -409,16 +476,8 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         if (highlightedVertices.Contains(vertex)) return;
 
-        var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-        if (vertexGO != null)
-        {
-            var renderer = vertexGO.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.material.color = highlightColor;
-                highlightedVertices.Add(vertex);
-            }
-        }
+        SetVertexColor(vertex, highlightColor);
+        highlightedVertices.Add(vertex);
     }
 
     // Old UpdateAmbushHoverEdge() method removed - now using Orb-based preview system with edge colliders
@@ -472,15 +531,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         if (!stillConnectedToAmbush && highlightedVertices.Contains(vertex))
         {
-            var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-            if (vertexGO != null)
-            {
-                var renderer = vertexGO.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    renderer.material.color = originalVertexColor;
-                }
-            }
+            RestoreVertexOriginalMaterials(vertex);
             highlightedVertices.Remove(vertex);
         }
     }
@@ -616,15 +667,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         foreach (var vertex in pathVertices)
         {
-            var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-            if (vertexGO != null)
-            {
-                var renderer = vertexGO.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    renderer.material.color = pathColor;
-                }
-            }
+            SetVertexColor(vertex, pathColor);
         }
 
         for (int i = 1; i < pathVertices.Count; i++)
@@ -718,15 +761,7 @@ public class InteractionManager : Singleton<InteractionManager>
                 var pathVertices = completedPaths[pathIndex];
                 foreach (var vertex in pathVertices)
                 {
-                    var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-                    if (vertexGO != null)
-                    {
-                        var renderer = vertexGO.GetComponent<Renderer>();
-                        if (renderer != null)
-                        {
-                            renderer.material.color = originalVertexColor; // Reset to original color
-                        }
-                    }
+                    RestoreVertexOriginalMaterials(vertex); // Reset to original materials
                 }
             }
         }
@@ -1174,12 +1209,7 @@ public class InteractionManager : Singleton<InteractionManager>
         // Reset vertex colors and hide edges
         foreach (var vertex in pathVerts)
         {
-            var go = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-            if (go != null)
-            {
-                var r = go.GetComponent<Renderer>();
-                if (r != null) r.material.color = originalVertexColor;
-            }
+            RestoreVertexOriginalMaterials(vertex);
         }
         for (int i = 1; i < pathVerts.Count; i++)
         {
@@ -1549,7 +1579,6 @@ public class InteractionManager : Singleton<InteractionManager>
         // Workers will remain visible until execution phase starts
         // They are hidden later when actual movement begins
 
-        ResetAllVertexHighlights();
         return true;
     }
 
@@ -2273,7 +2302,7 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         // Hide any preview orb
         HideAmbushPreview();
-        
+
         selectedVertices.Clear();
         validNextVertices.Clear();
         availableStartVertices.Clear();
@@ -2282,6 +2311,9 @@ public class InteractionManager : Singleton<InteractionManager>
         isMoving = false;
         workerObj?.SetActive(false);
         ambushStart = default;
+
+        // Clear stored vertex materials
+        ClearStoredVertexMaterials();
 
         // Clean up multiple workers
         foreach (var worker in workerObjects)
@@ -2377,7 +2409,6 @@ public class InteractionManager : Singleton<InteractionManager>
 
         // Reset vertex colors BEFORE clearing completedPaths
         ResetAllVertexHighlights();
-        ResetAllVertexColorsToOriginal();
 
         pathCreationState = PathCreationState.NotCreating;
         currentPathIndex = -1;
@@ -2424,32 +2455,6 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log("🔄 Complete reset performed - all colors, workers, and ambushes cleared");
     }
 
-    // New method to reset ALL vertex colors, not just highlighted ones
-    void ResetAllVertexColorsToOriginal()
-    {
-        // Reset any vertices that might have path colors from VisualizeCompletedPath
-        for (int pathIndex = 0; pathIndex < pathColorMap.Count; pathIndex++)
-        {
-            if (pathIndex < completedPaths.Count)
-            {
-                var pathVertices = completedPaths[pathIndex];
-                foreach (var vertex in pathVertices)
-                {
-                    var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-                    if (vertexGO != null)
-                    {
-                        var renderer = vertexGO.GetComponent<Renderer>();
-                        if (renderer != null)
-                        {
-                            renderer.material.color = originalVertexColor;
-                        }
-                    }
-                }
-            }
-        }
-
-        Debug.Log("All vertex colors reset to original");
-    }
 
     // Public method to clean up after animation ends (called after round execution)
     public void CleanupAfterRoundAnimation()
@@ -2478,6 +2483,12 @@ public class InteractionManager : Singleton<InteractionManager>
         workerMovingStates.Clear();
 
         GridVisualsManager.Instance.HideAllEdges();
+
+        completedPaths.Clear();
+        completedPathResourceFields.Clear();
+        completedPathIsWagonWorker.Clear();
+        pathColorMap.Clear();
+        highlightedVertices.Clear();
 
         // Also clean up legacy worker
         if (workerObj != null)
