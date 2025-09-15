@@ -12,7 +12,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
     private int PORT = 8080;
 
-    private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
+    private String IP = "localhost";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
@@ -452,31 +452,12 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         var gameOverMsg = JsonUtility.FromJson<ServerMessageGameOver>(messageString);
                         string winner = gameOverMsg.payload.winner;
                         string reason = gameOverMsg.payload.reason;
+                        bool amIWinner = gameOverMsg.payload.amIWinner;
 
                         Debug.LogWarning("--- RECEIVED 'game_over'. Displaying end panel. ---");
-                        Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, ={reason}"); //winner correct
-
-                        // CRITICAL: Store role immediately BEFORE calling EndGame() to prevent role clearing
-                        Debug.Log($"[NetworkManager] GameManager.Instance: {GameManager.Instance}");
-                        Debug.Log($"[NetworkManager] GameManager.Instance.GetHashCode(): {GameManager.Instance.GetHashCode()}");
-
-                        PlayerRole myCurrentRole = GameManager.Instance.MyRole; //MUST get role before EndGame() clears it
-                        string myCurrentRoleString = myCurrentRole.ToString();
-
-                        Debug.Log($"[NetworkManager] My Role: {myCurrentRole}, My Role String: '{myCurrentRoleString}'");
-                        Debug.Log($"[NetworkManager] Winner String: '{winner}'");
-
-                        // IMPORTANT: Determine winner using stored values before EndGame() clears everything
-                        bool amIWinner = myCurrentRoleString == winner;
-                        Debug.Log($"[NetworkManager] Winner determination (using stored role): Am I Winner? {amIWinner}");
-
-                        // Call EndGame() AFTER storing winner determination
-                        GameManager.Instance.EndGame();
-
-                        // Double-check what role is after EndGame (for debugging)
-                        Debug.Log($"[NetworkManager] Role after EndGame: {GameManager.Instance.MyRole}");
-
+                        Debug.Log($"[NetworkManager] Game Over Details: Winner={winner}, ={reason}, amIWinner: {amIWinner}");
                         UIManager.Instance.ShowEndGamePanel(amIWinner);
+                        GameManager.Instance.EndGame();
                         break;
 
                     case "new_round":

@@ -159,7 +159,7 @@ namespace NetworkingDTOs
         public ResourcePayload kingBonus;
 
         public List<HexEdge> outcome; //wird nicht mehr verwendet??
-        
+
         public int workersLost;
         public int[] lostWorkerPaths;
         public int kingWorkerCount;
@@ -370,6 +370,8 @@ namespace NetworkingDTOs
     {
         public string winner;
         public string reason;
+
+        public bool amIWinner;
     }
 
     [Serializable]
