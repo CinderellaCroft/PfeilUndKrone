@@ -83,6 +83,8 @@ public class InteractionManager : Singleton<InteractionManager>
     private const int ambushCost = 12;
     private int purchasedAmbushes = 0; // How many ambushes bandit has purchased
     private bool isInAmbushPlacementMode = false;
+    private int pendingDeletionIndex = -1; // For server-validated deletion
+    private int pendingPathDeletionIndex = -1; // For server-validated path deletion
 
     // King resources and worker buying system
     private int currentGrain = 0; // Will be updated from server
@@ -91,6 +93,8 @@ public class InteractionManager : Singleton<InteractionManager>
     private const int workerWoodCost = 8;
     private const int wagonWoodCost = 25;
     private int ownedWorkers = 0;
+    private bool pendingWorkerPurchase = false; // For server-validated worker purchase
+    private bool pendingWagonUpgrade = false; // For server-validated wagon upgrade
     private int usedWorkers = 0;
     private int ownedWagonWorkers = 0;
     private int usedWagonWorkers = 0;
@@ -103,7 +107,6 @@ public class InteractionManager : Singleton<InteractionManager>
     // Path highlighting system
     private List<HexVertex> serverPathVertices = new();
     private List<List<HexVertex>> allServerPathsVertices = new();
-
 
     protected override void Awake()
     {
@@ -129,6 +132,94 @@ public class InteractionManager : Singleton<InteractionManager>
             .Cast<VertexDirection>()
             .Select(d => new HexVertex(new Hex(0, 0), d))
             .ToList();
+
+        // Create ambush edge colliders after a small delay to ensure grid is initialized
+        StartCoroutine(CreateAmbushEdgeCollidersDelayed());
+    }
+
+    private System.Collections.IEnumerator CreateAmbushEdgeCollidersDelayed()
+    {
+        // Wait a frame to ensure grid generation is complete
+        yield return new WaitForEndOfFrame();
+        CreateAmbushEdgeColliders();
+    }
+
+    private void CreateAmbushEdgeColliders()
+    {
+        if (gridGen == null || gridGen.Model?.AllVertices == null)
+        {
+            Debug.LogWarning("Cannot create ambush edge colliders - grid not ready");
+            return;
+        }
+
+        Debug.Log("Creating ambush edge colliders...");
+        
+        // Clear any existing colliders
+        foreach (var collider in ambushEdgeColliders)
+        {
+            if (collider != null) Destroy(collider);
+        }
+        ambushEdgeColliders.Clear();
+
+        var processedPairs = new HashSet<(HexVertex, HexVertex)>();
+
+        // For each vertex, find its neighbors and create edge colliders
+        foreach (var vertex in gridGen.Model.AllVertices)
+        {
+            var neighbors = GetNeighborVertices(vertex);
+            foreach (var neighbor in neighbors)
+            {
+                // Create an ordered pair to avoid duplicates
+                var pair1 = (vertex, neighbor);
+                var pair2 = (neighbor, vertex);
+                
+                if (processedPairs.Contains(pair1) || processedPairs.Contains(pair2))
+                    continue;
+
+                processedPairs.Add(pair1);
+
+                // Create invisible collider between these vertices
+                CreateEdgeCollider(vertex, neighbor);
+            }
+        }
+
+        Debug.Log($"Created {ambushEdgeColliders.Count} ambush edge colliders");
+    }
+
+    private void CreateEdgeCollider(HexVertex vertexA, HexVertex vertexB)
+    {
+        var aPos = vertexA.ToWorld(gridGen.hexRadius);
+        var bPos = vertexB.ToWorld(gridGen.hexRadius);
+        var midPoint = (aPos + bPos) * 0.5f;
+        midPoint.y = 0;
+
+        // Create invisible GameObject for the edge
+        var edgeGO = new GameObject($"AmbushEdgeCollider_{vertexA.Hex.Q},{vertexA.Hex.R},{vertexA.Direction}_to_{vertexB.Hex.Q},{vertexB.Hex.R},{vertexB.Direction}");
+        edgeGO.transform.position = midPoint;
+        edgeGO.transform.SetParent(GridVisualsManager.Instance.hexFieldContainer);
+
+        // Add collider - use a capsule collider oriented along the edge
+        var collider = edgeGO.AddComponent<CapsuleCollider>();
+        collider.direction = 2; // Z-axis
+        var distance = Vector3.Distance(aPos, bPos);
+        collider.height = distance;
+        collider.radius = 0.1f; // Thin radius for precise detection
+
+        // Orient the collider to align with the edge
+        var direction = (bPos - aPos).normalized;
+        if (direction != Vector3.zero)
+        {
+            edgeGO.transform.LookAt(edgeGO.transform.position + direction);
+        }
+
+        // Add AmbushEdgeMarker component
+        var marker = edgeGO.AddComponent<AmbushEdgeMarker>();
+        marker.Initialize(vertexA, vertexB);
+
+        // Make the collider invisible but interactive
+        edgeGO.layer = 0; // Default layer
+        
+        ambushEdgeColliders.Add(edgeGO);
     }
 
     public void EnableInteraction(PlayerRole role)
@@ -138,6 +229,8 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             currentMode = InteractionMode.AmbushPlacement;
             ShowWorkersForBandit();
+            // Ensure edge colliders are created for new game
+            CreateAmbushEdgeColliders();
         }
     }
 
@@ -166,7 +259,8 @@ public class InteractionManager : Singleton<InteractionManager>
             UpdateAmbushHoverEdge();
             if (LeftClickDown() && hasHoverEdge)
             {
-                HandleAmbushClick(hoverEdge);
+                var endpoints = hoverEdge.GetVertexEndpoints();
+                OnAmbushEdgeLeftClick(endpoints[0], endpoints[1]);
             }
             DrawAmbushLines();
         }
@@ -181,6 +275,61 @@ public class InteractionManager : Singleton<InteractionManager>
     public void OnVertexClicked(HexVertex v)
     {
         if (currentMode == InteractionMode.PathSelection) HandlePathClick(v);
+        // Old ambush system commented out - replaced with edge-based hover system
+        // else if (currentMode == InteractionMode.AmbushPlacement) HandleAmbushClick(v);
+    }
+    
+    // Right-click to delete a completed path (only when the player is not in the creating mode)
+    public void OnRightClickVertex(HexVertex v)
+    {
+        if (currentMode != InteractionMode.PathSelection) return;
+        if (pathCreationState != PathCreationState.NotCreating) return;
+
+        for (int idx = 0; idx < completedPaths.Count; idx++)
+        {
+            if (completedPaths[idx].Contains(v))
+            {
+                DeleteCompletedPath(idx);
+                return;
+            }
+        }
+    }
+    
+    public void OnRightClickEdge(HexEdge e)
+    {
+        if (currentMode != InteractionMode.PathSelection) return;
+        if (pathCreationState != PathCreationState.NotCreating) return; // don't delete while creating
+
+        for (int idx = 0; idx < completedPaths.Count; idx++)
+        {
+            var path = completedPaths[idx];
+            for (int i = 1; i < path.Count; i++)
+            {
+                if (path[i - 1].TryGetEdgeTo(path[i], out var edge) && edge.Equals(e))
+                {
+                    DeleteCompletedPath(idx);
+                    return;
+                }
+            }
+        }
+    }
+
+    // Right-click to delete an ambush orb (only when not in placement mode)
+    public void OnRightClickAmbushOrb(GameObject orbGameObject)
+    {
+        if (currentMode != InteractionMode.AmbushPlacement) return;
+        if (isInAmbushPlacementMode) return; // don't delete while placing new ambushes
+
+        // Find which ambush this orb belongs to
+        int ambushIndex = ambushOrbObjects.IndexOf(orbGameObject);
+        if (ambushIndex >= 0 && ambushIndex < placedAmbushes.Count)
+        {
+            DeleteAmbush(ambushIndex);
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ Could not find ambush for clicked orb GameObject");
+        }
     }
 
     // === VERTEX HIGHLIGHTING SYSTEM ===
@@ -735,7 +884,7 @@ public class InteractionManager : Singleton<InteractionManager>
     // === WORKER BUYING SYSTEM FOR KING ===
     public bool CanBuyWorker()
     {
-        return currentGrain >= workerGrainCost && currentWood >= workerWoodCost && currentMode == InteractionMode.PathSelection;
+        return currentGrain >= workerGrainCost && currentWood >= workerWoodCost && currentMode == InteractionMode.PathSelection && !pendingWorkerPurchase;
     }
 
     public string GetWorkerBuyButtonText()
@@ -769,11 +918,14 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
         }
 
+        // Set pending flag to prevent multiple purchases
+        pendingWorkerPurchase = true;
+
         // Send buy request to server
         var payload = new { grainCost = workerGrainCost, woodCost = workerWoodCost };
         net.Send("buy_worker", payload);
 
-        Debug.Log($"Worker purchase request sent (Cost: {workerGrainCost} grain, {workerWoodCost} wood)");
+        Debug.Log($"Worker purchase request sent (Cost: {workerGrainCost} grain, {workerWoodCost} wood) - Pending: {pendingWorkerPurchase}");
 
         // Server will respond with worker_approved or worker_denied
         // On approval, server will update our resources and we can place the worker
@@ -782,21 +934,23 @@ public class InteractionManager : Singleton<InteractionManager>
     public void OnWorkerPurchaseApproved()
     {
         ownedWorkers++;
-        Debug.Log($"Worker purchase approved! Total workers: {ownedWorkers}");
+        pendingWorkerPurchase = false; // Clear pending flag
+        Debug.Log($"Worker purchase approved! Total workers: {ownedWorkers} - Pending cleared: {!pendingWorkerPurchase}");
         UIManager.Instance.UpdateInfoText($"Worker purchased! You now have {ownedWorkers - usedWorkers} available workers.");
         UIManager.Instance.UpdateWorkerText();
     }
 
     public void OnWorkerPurchaseDenied(string reason)
     {
-        Debug.LogError($"Worker purchase denied: {reason}");
+        pendingWorkerPurchase = false; // Clear pending flag
+        Debug.LogError($"Worker purchase denied: {reason} - Pending cleared: {!pendingWorkerPurchase}");
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
     // Wagon Worker Management
     public bool CanUpgradeWorkerToWagon()
     {
-        return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0;
+        return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0 && !pendingWagonUpgrade;
     }
 
     public void QuitGameRequest()
@@ -835,10 +989,13 @@ public class InteractionManager : Singleton<InteractionManager>
         // Ensure net is available
         if (net == null) net = NetworkManager.Instance;
 
+        // Set pending flag to prevent multiple upgrades
+        pendingWagonUpgrade = true;
+
         var payload = new { woodCost = wagonWoodCost };
         net.Send("upgrade_worker_wagon", payload);
 
-        Debug.Log($"Wagon upgrade request sent (Cost: {wagonWoodCost} wood)");
+        Debug.Log($"Wagon upgrade request sent (Cost: {wagonWoodCost} wood) - Pending: {pendingWagonUpgrade}");
         // Server will respond with wagon_upgrade_approved or wagon_upgrade_denied
     }
 
@@ -846,14 +1003,16 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         ownedWorkers = totalWorkers;
         ownedWagonWorkers = wagonWorkers;
-        Debug.Log($"Wagon upgrade approved! Wagon workers: {ownedWagonWorkers}/{ownedWorkers}");
+        pendingWagonUpgrade = false; // Clear pending flag
+        Debug.Log($"Wagon upgrade approved! Wagon workers: {ownedWagonWorkers}/{ownedWorkers} - Pending cleared: {!pendingWagonUpgrade}");
         UIManager.Instance.UpdateInfoText($"Worker upgraded to wagon! You now have {ownedWagonWorkers} wagon workers.");
         UIManager.Instance.UpdateWorkerText();
     }
 
     public void OnWagonUpgradeDenied(string reason)
     {
-        Debug.LogError($"Wagon upgrade denied: {reason}");
+        pendingWagonUpgrade = false; // Clear pending flag
+        Debug.LogError($"Wagon upgrade denied: {reason} - Pending cleared: {!pendingWagonUpgrade}");
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
@@ -1003,6 +1162,114 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
+    public void OnAmbushDeletionApproved()
+    {
+        if (pendingDeletionIndex < 0 || pendingDeletionIndex >= placedAmbushes.Count)
+        {
+            Debug.LogWarning("⚠️ Invalid pending deletion index, cannot complete deletion");
+            pendingDeletionIndex = -1;
+            return;
+        }
+
+        var ambush = placedAmbushes[pendingDeletionIndex];
+
+        // Reset vertex colors for the ambush vertices
+        UpdateVertexHighlightsForAmbushVertices(ambush.cornerA);
+        UpdateVertexHighlightsForAmbushVertices(ambush.cornerB);
+
+        // Destroy the visual orb object
+        if (pendingDeletionIndex < ambushOrbObjects.Count && ambushOrbObjects[pendingDeletionIndex] != null)
+        {
+            Destroy(ambushOrbObjects[pendingDeletionIndex]);
+            ambushOrbObjects.RemoveAt(pendingDeletionIndex);
+        }
+
+        // Remove the ambush data
+        placedAmbushes.RemoveAt(pendingDeletionIndex);
+
+        // Decrease purchased ambushes counter since this ambush is deleted
+        if (purchasedAmbushes > 0)
+        {
+            purchasedAmbushes--;
+        }
+
+        Debug.Log($"✅ Ambush deletion approved! Ambush between vertices ({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R}) and ({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R}) deleted");
+        
+        // Reset pending deletion
+        pendingDeletionIndex = -1;
+
+        // Note: Resource updates are handled by server via 'resource_update' message
+        // UI will be updated when UpdateResources() is called by NetworkManager
+    }
+
+    public void OnPathDeletionApproved()
+    {
+        if (pendingPathDeletionIndex < 0 || pendingPathDeletionIndex >= completedPaths.Count)
+        {
+            Debug.LogWarning("⚠️ Invalid pending path deletion index, cannot complete deletion");
+            pendingPathDeletionIndex = -1;
+            return;
+        }
+
+        var index = pendingPathDeletionIndex;
+        var pathVerts = completedPaths[index];
+        var isWagon = completedPathIsWagonWorker[index];
+        var resourceField = completedPathResourceFields[index];
+
+        // Reset vertex colors and hide edges
+        foreach (var vertex in pathVerts)
+        {
+            var go = GridVisualsManager.Instance.GetVertexGameObject(vertex);
+            if (go != null)
+            {
+                var r = go.GetComponent<Renderer>();
+                if (r != null) r.material.color = originalVertexColor;
+            }
+        }
+        for (int i = 1; i < pathVerts.Count; i++)
+        {
+            if (pathVerts[i - 1].TryGetEdgeTo(pathVerts[i], out var e))
+                GridVisualsManager.Instance.SetEdgeVisible(e, false);
+        }
+
+        // Refund worker usage
+        usedWorkers = Mathf.Max(0, usedWorkers - 1);
+        if (isWagon) usedWagonWorkers = Mathf.Max(0, usedWagonWorkers - 1);
+
+        // Remove any worker object on this resource field (best-effort)
+        var fieldCenter = resourceField.ToWorld(gridGen.hexRadius);
+        var nearest = resourceFieldWorkers
+            .Where(go => go != null)
+            .OrderBy(go => Vector3.SqrMagnitude(go.transform.position - new Vector3(fieldCenter.x, go.transform.position.y, fieldCenter.z)))
+            .FirstOrDefault();
+        if (nearest != null)
+        {
+            resourceFieldWorkers.Remove(nearest);
+            Destroy(nearest);
+        }
+
+        // Remove bookkeeping
+        completedPaths.RemoveAt(index);
+        completedPathResourceFields.RemoveAt(index);
+        completedPathIsWagonWorker.RemoveAt(index);
+        if (pathColorMap.ContainsKey(index)) pathColorMap.Remove(index);
+        // Reindex colors
+        pathColorMap = completedPaths
+            .Select((p, i) => new { i, color = pathColors[i % pathColors.Length] })
+            .ToDictionary(x => x.i, x => x.color);
+
+        Debug.Log($"✅ Path deletion approved! Path #{index} (wagon: {isWagon}) deleted");
+        
+        // Reset pending deletion
+        pendingPathDeletionIndex = -1;
+
+        // Update UI
+        UIManager.Instance.UpdateWorkerText();
+
+        // Note: Resource updates are handled by server via 'resource_update' message
+        // UI will be updated when UpdateResources() is called by NetworkManager
+    }
+
     public int GetPurchasedAmbushCount()
     {
         return purchasedAmbushes;
@@ -1060,6 +1327,46 @@ public class InteractionManager : Singleton<InteractionManager>
     void HandlePathClick(HexVertex v)
     {
         if (pathComplete || isMoving) return;
+        // Allow undo from ReadyToConfirm by clicking the last vertex again
+        if (pathCreationState == PathCreationState.ReadyToConfirm)
+        {
+            if (selectedVertices.Count > 0 && v.Equals(selectedVertices.Last()))
+            {
+                // Remove last point, revert edge visibility
+                if (selectedVertices.Count >= 2)
+                {
+                    var beforeLast = selectedVertices.ElementAt(selectedVertices.Count - 2);
+                    if (beforeLast.TryGetEdgeTo(v, out var lastEdge))
+                        GridVisualsManager.Instance.SetEdgeVisible(lastEdge, false);
+                }
+                ToggleVertexHighlight(v); // unhighlight last
+                selectedVertices.Remove(v);
+
+                // If no vertices left, go back to selecting start corner
+                if (selectedVertices.Count == 0)
+                {
+                    pathComplete = false;
+                    pathCreationState = PathCreationState.SelectingStartVertex;
+                    validNextVertices.Clear();
+                    // Re-highlight available start vertices
+                    foreach (var sv in availableStartVertices)
+                        EnsureVertexHighlighted(sv);
+                }
+                else
+                {
+                    pathComplete = false;
+                    pathCreationState = PathCreationState.Creating;
+                    var last = selectedVertices.Last();
+                    validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(last).Except(selectedVertices));
+                }
+
+                // Update UI since not ready anymore
+                UIManager.Instance.UpdateKingPathButtonText();
+                UIManager.Instance.UpdateKingPathConfirmButtonText();
+                return;
+            }
+            // If clicked another vertex while ReadyToConfirm that's not the last, ignore
+        }
 
         if (pathCreationState == PathCreationState.SelectingStartVertex)
         {
@@ -1082,7 +1389,6 @@ public class InteractionManager : Singleton<InteractionManager>
             selectedVertices.Add(v);
             pathCreationState = PathCreationState.Creating;
 
-            // End-Vertices (Zentrum) zunächst verbergen/verbieten
             validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v).Except(centralVertices));
             UpdateEndVertexHighlighting();
 
@@ -1098,6 +1404,44 @@ public class InteractionManager : Singleton<InteractionManager>
 
         Debug.Log($"Vertex clicked: ({v.Hex.Q},{v.Hex.R}) Direction: {v.Direction}");
 
+        // If clicking the current last vertex again while creating, undo the last step
+        if (selectedVertices.Count > 0 && v.Equals(selectedVertices.Last()))
+        {
+            // Hide the last edge if there was one
+            if (selectedVertices.Count >= 2)
+            {
+                var beforeLast = selectedVertices.ElementAt(selectedVertices.Count - 2);
+                if (beforeLast.TryGetEdgeTo(v, out var lastEdge))
+                    GridVisualsManager.Instance.SetEdgeVisible(lastEdge, false);
+            }
+
+            // Unhighlight and remove the last vertex
+            ToggleVertexHighlight(v);
+            selectedVertices.Remove(v);
+
+            // If we removed the start corner, go back to selecting start vertex
+            if (selectedVertices.Count == 0)
+            {
+                pathComplete = false;
+                pathCreationState = PathCreationState.SelectingStartVertex;
+                validNextVertices.Clear();
+                foreach (var sv in availableStartVertices)
+                    EnsureVertexHighlighted(sv);
+            }
+            else
+            {
+                pathComplete = false;
+                pathCreationState = PathCreationState.Creating;
+                var last = selectedVertices.Last();
+                validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(last).Except(selectedVertices));
+            }
+
+            // Update UI (not ready anymore)
+            UIManager.Instance.UpdateKingPathButtonText();
+            UIManager.Instance.UpdateKingPathConfirmButtonText();
+            return;
+        }
+
         if (!validNextVertices.Contains(v))
         {
             validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last()));
@@ -1110,15 +1454,15 @@ public class InteractionManager : Singleton<InteractionManager>
 
         selectedVertices.Add(v);
         ToggleVertexHighlight(v);
-        if (centralVertices.Contains(v) && selectedVertices.Count >= 3)
+        if (centralVertices.Contains(v))
         {
             pathComplete = true;
             pathCreationState = PathCreationState.ReadyToConfirm;
             Debug.Log("✅ Path completed! Ready to confirm.");
 
-            // Update UI buttons when path is ready to confirm
-            UIManager.Instance.UpdateKingPathButtonText();
-            UIManager.Instance.UpdateKingPathConfirmButtonText();
+            // Auto-confirm the path immediately when completed
+            ConfirmCurrentPath();
+            return;
         }
         else if (centralVertices.Contains(v))
         {
@@ -1144,6 +1488,54 @@ public class InteractionManager : Singleton<InteractionManager>
             if (showEnds && !isHighlighted) ToggleVertexHighlight(cv);
             else if (!showEnds && isHighlighted) ToggleVertexHighlight(cv);
         }
+    }
+    
+    void DeleteCompletedPath(int index)
+    {
+        if (index < 0 || index >= completedPaths.Count) return;
+
+        var isWagon = completedPathIsWagonWorker[index];
+
+        // Store the path index for deletion after server approval
+        pendingPathDeletionIndex = index;
+
+        Debug.Log($"🗑️ Requesting deletion of path #{index} (wagon: {isWagon})");
+
+        // Send deletion request to server
+        if (net == null) net = NetworkManager.Instance;
+        var payload = new { 
+            grainCost = workerGrainCost, 
+            woodCost = workerWoodCost, 
+            wagonWoodCost = wagonWoodCost,
+            isWagonWorker = isWagon
+        };
+        net.Send("delete_path", payload);
+
+        var totalWoodCost = workerWoodCost + (isWagon ? wagonWoodCost : 0);
+        Debug.Log($"🗑️ Path deletion request sent (Refund: {workerGrainCost} grain + {totalWoodCost} wood)");
+    }
+
+    void DeleteAmbush(int index)
+    {
+        if (index < 0 || index >= placedAmbushes.Count) return;
+
+        var ambush = placedAmbushes[index];
+
+        // Store the ambush data for deletion after server approval
+        pendingDeletionIndex = index;
+
+        // Determine which resource type should be refunded (same logic as buying)
+        bool useWood = currentWood >= currentGrain;
+        string resourceType = useWood ? "wood" : "grain";
+
+        Debug.Log($"🗑️ Requesting deletion of ambush between vertices ({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R}) and ({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R})");
+
+        // Send deletion request to server
+        if (net == null) net = NetworkManager.Instance;
+        var payload = new { cost = ambushCost, resourceType = resourceType };
+        net.Send("delete_ambush", payload);
+
+        Debug.Log($"🗑️ Ambush deletion request sent (Refund: {ambushCost} {resourceType})");
     }
 
     public bool SubmitPath()
@@ -1451,7 +1843,9 @@ public class InteractionManager : Singleton<InteractionManager>
             .Distinct();
 
     // === AMBUSH HANDLING ===
-    void HandleAmbushClick(HexEdge e)
+    
+    /* OLD VERTEX-BASED AMBUSH SYSTEM - COMMENTED OUT AS BACKUP
+    void HandleAmbushClick(HexVertex v)
     {
         if (!isInAmbushPlacementMode)
         {
@@ -1463,64 +1857,301 @@ public class InteractionManager : Singleton<InteractionManager>
         var vA = endpoints[0];
         var vB = endpoints[1];
 
-        int existingIndex = placedAmbushes.FindIndex(a =>
-            (a.cornerA.Equals(vA) && a.cornerB.Equals(vB)) ||
-            (a.cornerA.Equals(vB) && a.cornerB.Equals(vA)));
+        // If clicking the same vertex again, deselect it (toggle behavior like King's path)
+        if (ambushStart.Equals(v))
+        {
+            UpdateVertexHighlightsForAmbushVertices(ambushStart);
+            ambushStart = default;
+            Debug.Log($"✅ Ambush start deselected at vertex: ({v.Hex.Q},{v.Hex.R},{v.Direction})");
+            return;
+        }
+
+        // Check if the clicked vertex is a neighbor of the ambush start
+        var neighborsOfStart = GetNeighborVertices(ambushStart).ToList();
+
+        Debug.Log($"Checking neighbors: Start vertex ({ambushStart.Hex.Q},{ambushStart.Hex.R}) has {neighborsOfStart.Count} neighbors");
+        Debug.Log($"Clicked vertex: ({v.Hex.Q},{v.Hex.R}) - Is neighbor: {neighborsOfStart.Contains(v)}");
+
+        if (!neighborsOfStart.Contains(v))
+        {
+            Debug.LogError($"❌ Error: Vertices are not neighbors! Start: ({ambushStart.Hex.Q},{ambushStart.Hex.R}) End: ({v.Hex.Q},{v.Hex.R}) Resetting ambush start.");
+            UpdateVertexHighlightsForAmbushVertices(ambushStart);
+            ambushStart = default;
+            return;
+        }
+
+        // Check if an ambush already exists at this location
+        var existingIndex = placedAmbushes.FindIndex(a =>
+            (a.cornerA.Equals(ambushStart) && a.cornerB.Equals(v)) ||
+            (a.cornerA.Equals(v) && a.cornerB.Equals(ambushStart)));
 
         if (existingIndex >= 0)
         {
-            if (existingIndex < ambushOrbObjects.Count)
-            {
-                Destroy(ambushOrbObjects[existingIndex]);
-                ambushOrbObjects.RemoveAt(existingIndex);
-            }
-            placedAmbushes.RemoveAt(existingIndex);
-            ambushEdges.Remove(e);
-            Debug.Log($"Ambush removed on edge {e}");
+            Debug.LogError($"❌ Error: An ambush already exists between these vertices! Use right-click to delete existing ambushes.");
+            UpdateVertexHighlightsForAmbushVertices(ambushStart);
+            ambushStart = default;
+            return;
         }
-        else
+
+        if (placedAmbushes.Count >= maxAmbushes)
         {
-            if (EdgeBothEndsSpecial(e))
-            {
-                Debug.LogError("❌ Error: Cannot place ambush in the moat.");
-                UIManager.Instance.UpdateInfoText("Error: Ambushes can't be placed in the moat.");
-                return;
-            }
-
-            if (placedAmbushes.Count >= maxAmbushes)
-            {
-                Debug.LogError($"❌ Error: Maximum ambushes ({maxAmbushes}) already placed!");
-                return;
-            }
-            if (ambushOrb == null)
-            {
-                Debug.LogError("❌ Error: ambushOrb prefab is null!");
-                return;
-            }
-
-            var ambush = new NetworkingDTOs.AmbushEdge { cornerA = vA, cornerB = vB };
-            placedAmbushes.Add(ambush);
-            ambushEdges.Add(e);
-
-            var aPos = vA.ToWorld(gridGen.hexRadius);
-            var bPos = vB.ToWorld(gridGen.hexRadius);
-            var mid = (aPos + bPos) * 0.5f; mid.y = 0f;
-
-            Vector3 dir = bPos - aPos; dir.y = 0f;
-            Quaternion rot = dir.sqrMagnitude <= 1e-6f ? Quaternion.identity : Quaternion.LookRotation(dir);
-
-            var orbGO = Instantiate(ambushOrb, mid, rot);
-            ambushOrbObjects.Add(orbGO);
-
-            Debug.Log($"✅ Ambush created on {e} ({vA} <-> {vB})");
+            Debug.LogError($"❌ Error: Maximum ambushes ({maxAmbushes}) already placed!");
+            ambushStart = default;
+            return;
         }
 
+        if (ambushOrb == null)
+        {
+            Debug.LogError("❌ Error: ambushOrb prefab is null!");
+            return;
+        }
+
+        var ambushEdge = new NetworkingDTOs.AmbushEdge { cornerA = ambushStart, cornerB = v };
+        placedAmbushes.Add(ambushEdge);
+
+        var aPos = ambushStart.ToWorld(gridGen.hexRadius);
+        var bPos = v.ToWorld(gridGen.hexRadius);
+
+        var midPoint = (aPos + bPos) * 0.5f;
+        midPoint.y = 0;
+
+        Vector3 dir = bPos - aPos;
+        dir.y = 0f;
+
+        Quaternion rot;
+        if (dir.sqrMagnitude <= 1e-6f)
+            rot = Quaternion.identity;
+        else
+            rot = Quaternion.LookRotation(dir);
+
+        var orbGO = Instantiate(ambushOrb, midPoint, rot);
+        
+        // Add AmbushOrbMarker component for right-click detection
+        if (orbGO.GetComponent<AmbushOrbMarker>() == null)
+        {
+            orbGO.AddComponent<AmbushOrbMarker>();
+        }
+        
+        // Ensure the orb has a collider for mouse interaction
+        if (orbGO.GetComponent<Collider>() == null)
+        {
+            var collider = orbGO.AddComponent<SphereCollider>();
+            collider.radius = 0.5f; // Adjust size as needed
+        }
+        
+        ambushOrbObjects.Add(orbGO);
+
+        EnsureVertexHighlighted(v);
+        Debug.Log($"✅ Ambush created between vertices ({ambushStart.Hex.Q},{ambushStart.Hex.R}) and ({v.Hex.Q},{v.Hex.R})");
+
+        // Reset for next ambush placement
+        ambushStart = default;
+
+        // Only disable placement mode if we've used up all purchased ambushes
         if (placedAmbushes.Count >= purchasedAmbushes)
         {
             isInAmbushPlacementMode = false;
             if (hasHoverEdge) { GridVisualsManager.Instance.SetEdgeVisible(hoverEdge, false); hasHoverEdge = false; }
             GridVisualsManager.Instance.HideAllEdges();
             Debug.Log($"✅ All purchased ambushes ({purchasedAmbushes}) have been placed. Placement mode disabled.");
+        }
+    }
+    END OF OLD VERTEX-BASED SYSTEM */
+
+    // NEW EDGE-BASED AMBUSH SYSTEM WITH HOVER PREVIEW
+    
+    private GameObject currentPreviewOrb; // The transparent preview orb
+    private List<GameObject> ambushEdgeColliders = new(); // Invisible edge colliders for hover detection
+    
+    public void OnAmbushEdgeHoverEnter(HexVertex vertexA, HexVertex vertexB)
+    {
+        // Only show preview if bandit is in ambush placement mode and has ambushes left to place
+        if (currentMode != InteractionMode.AmbushPlacement) return;
+        if (!isInAmbushPlacementMode) return;
+        if (placedAmbushes.Count >= purchasedAmbushes) return; // No more ambushes to place
+        
+        // Check if an ambush already exists at this location
+        var existingIndex = placedAmbushes.FindIndex(a =>
+            (a.cornerA.Equals(vertexA) && a.cornerB.Equals(vertexB)) ||
+            (a.cornerA.Equals(vertexB) && a.cornerB.Equals(vertexA)));
+            
+        if (existingIndex >= 0) return; // Don't show preview if ambush already exists
+        
+        ShowAmbushPreview(vertexA, vertexB);
+    }
+    
+    public void OnAmbushEdgeHoverExit(HexVertex vertexA, HexVertex vertexB)
+    {
+        HideAmbushPreview();
+    }
+    
+    public void OnAmbushEdgeLeftClick(HexVertex vertexA, HexVertex vertexB)
+    {
+        // Only place ambush if in placement mode and have ambushes left to place
+        if (currentMode != InteractionMode.AmbushPlacement) return;
+        if (!isInAmbushPlacementMode) return;
+        if (placedAmbushes.Count >= purchasedAmbushes) return; // No more ambushes to place
+        
+        PlaceAmbushOnEdge(vertexA, vertexB);
+    }
+    
+    public void OnAmbushEdgeRightClick(HexVertex vertexA, HexVertex vertexB)
+    {
+        // Only delete if NOT in placement mode (same logic as before)
+        if (currentMode != InteractionMode.AmbushPlacement) return;
+        if (isInAmbushPlacementMode) return;
+        
+        // Find existing ambush at this location
+        var existingIndex = placedAmbushes.FindIndex(a =>
+            (a.cornerA.Equals(vertexA) && a.cornerB.Equals(vertexB)) ||
+            (a.cornerA.Equals(vertexB) && a.cornerB.Equals(vertexA)));
+            
+        if (existingIndex >= 0)
+        {
+            DeleteAmbush(existingIndex);
+        }
+    }
+    
+    private void ShowAmbushPreview(HexVertex vertexA, HexVertex vertexB)
+    {
+        HideAmbushPreview(); // Remove any existing preview
+        
+        if (ambushOrb == null) return;
+        
+        var aPos = vertexA.ToWorld(gridGen.hexRadius);
+        var bPos = vertexB.ToWorld(gridGen.hexRadius);
+        var midPoint = (aPos + bPos) * 0.5f;
+        midPoint.y = 0;
+        
+        Vector3 dir = bPos - aPos;
+        dir.y = 0f;
+        
+        Quaternion rot;
+        if (dir.sqrMagnitude <= 1e-6f)
+            rot = Quaternion.identity;
+        else
+            rot = Quaternion.LookRotation(dir);
+            
+        currentPreviewOrb = Instantiate(ambushOrb, midPoint, rot);
+        
+        // Make it transparent/ghostly
+        var renderers = currentPreviewOrb.GetComponentsInChildren<Renderer>();
+        foreach (var renderer in renderers)
+        {
+            foreach (var material in renderer.materials)
+            {
+                // Set transparency to create ghost effect
+                if (material.HasProperty("_Color"))
+                {
+                    var color = material.color;
+                    color.a = 0.5f; // 50% transparency
+                    material.color = color;
+                }
+                
+                // Enable transparency if not already
+                if (material.HasProperty("_Mode"))
+                {
+                    material.SetFloat("_Mode", 2); // Fade mode
+                    material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    material.SetInt("_ZWrite", 0);
+                    material.DisableKeyword("_ALPHATEST_ON");
+                    material.EnableKeyword("_ALPHABLEND_ON");
+                    material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    material.renderQueue = 3000;
+                }
+            }
+        }
+        
+        Debug.Log($"✅ Showing ambush preview between vertices ({vertexA.Hex.Q},{vertexA.Hex.R}) and ({vertexB.Hex.Q},{vertexB.Hex.R})");
+    }
+    
+    private void HideAmbushPreview()
+    {
+        if (currentPreviewOrb != null)
+        {
+            Destroy(currentPreviewOrb);
+            currentPreviewOrb = null;
+        }
+    }
+    
+    private void PlaceAmbushOnEdge(HexVertex vertexA, HexVertex vertexB)
+    {
+        // Check if an ambush already exists at this location
+        var existingIndex = placedAmbushes.FindIndex(a =>
+            (a.cornerA.Equals(vertexA) && a.cornerB.Equals(vertexB)) ||
+            (a.cornerA.Equals(vertexB) && a.cornerB.Equals(vertexA)));
+            
+        if (existingIndex >= 0)
+        {
+            Debug.LogError($"❌ Error: An ambush already exists between these vertices!");
+            return;
+        }
+        
+        if (placedAmbushes.Count >= maxAmbushes)
+        {
+            Debug.LogError($"❌ Error: Maximum ambushes ({maxAmbushes}) already placed!");
+            return;
+        }
+        
+        if (ambushOrb == null)
+        {
+            Debug.LogError("❌ Error: ambushOrb prefab is null!");
+            return;
+        }
+        
+        // Hide preview since we're placing the real ambush
+        HideAmbushPreview();
+        
+        var ambushEdge = new NetworkingDTOs.AmbushEdge { cornerA = vertexA, cornerB = vertexB };
+        placedAmbushes.Add(ambushEdge);
+        
+        var aPos = vertexA.ToWorld(gridGen.hexRadius);
+        var bPos = vertexB.ToWorld(gridGen.hexRadius);
+        var midPoint = (aPos + bPos) * 0.5f;
+        midPoint.y = 0;
+        
+        Vector3 dir = bPos - aPos;
+        dir.y = 0f;
+        
+        Quaternion rot;
+        if (dir.sqrMagnitude <= 1e-6f)
+            rot = Quaternion.identity;
+        else
+            rot = Quaternion.LookRotation(dir);
+            
+        var orbGO = Instantiate(ambushOrb, midPoint, rot);
+        
+        // Add AmbushOrbMarker component for right-click detection (for individual orb deletion)
+        if (orbGO.GetComponent<AmbushOrbMarker>() == null)
+        {
+            orbGO.AddComponent<AmbushOrbMarker>();
+        }
+        
+        // Ensure the orb has a collider for mouse interaction
+        if (orbGO.GetComponent<Collider>() == null)
+        {
+            var collider = orbGO.AddComponent<SphereCollider>();
+            collider.radius = 0.5f;
+        }
+        
+        ambushOrbObjects.Add(orbGO);
+        
+        // Don't highlight vertices - they should stay red (original color)
+        // EnsureVertexHighlighted(vertexA);
+        // EnsureVertexHighlighted(vertexB);
+        
+        Debug.Log($"✅ Ambush placed between vertices ({vertexA.Hex.Q},{vertexA.Hex.R}) and ({vertexB.Hex.Q},{vertexB.Hex.R})");
+        
+        // Only disable placement mode if we've placed all purchased ambushes
+        if (placedAmbushes.Count >= purchasedAmbushes)
+        {
+            isInAmbushPlacementMode = false;
+            Debug.Log($"✅ All purchased ambushes ({purchasedAmbushes}) have been placed. Placement mode disabled.");
+        }
+        else
+        {
+            Debug.Log($"✅ Ambush placed. {purchasedAmbushes - placedAmbushes.Count} more ambushes available to place.");
         }
     }
 
@@ -1688,6 +2319,9 @@ public class InteractionManager : Singleton<InteractionManager>
     // === STATE MANAGEMENT ===
     void ResetState()
     {
+        // Hide any preview orb
+        HideAmbushPreview();
+        
         selectedVertices.Clear();
         validNextVertices.Clear();
         availableStartVertices.Clear();
@@ -1709,6 +2343,8 @@ public class InteractionManager : Singleton<InteractionManager>
         pathCreationState = PathCreationState.NotCreating;
         currentPathIndex = -1;
         isInAmbushPlacementMode = false;
+        pendingWorkerPurchase = false; // Reset pending worker purchase flag
+        pendingWagonUpgrade = false; // Reset pending wagon upgrade flag
 
         if (!isMoving)
         {
@@ -1781,6 +2417,8 @@ public class InteractionManager : Singleton<InteractionManager>
         pathColorMap.Clear();
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;
+        pendingDeletionIndex = -1;
+        pendingPathDeletionIndex = -1;
         ownedWorkers = 0;
         usedWorkers = 0;
         ownedWagonWorkers = 0;
@@ -1805,6 +2443,13 @@ public class InteractionManager : Singleton<InteractionManager>
 
         placedAmbushes.Clear();
         ambushEdges.Clear();
+
+        // Clean up edge colliders for ambush system
+        foreach (var edgeCollider in ambushEdgeColliders)
+        {
+            if (edgeCollider != null) Destroy(edgeCollider);
+        }
+        ambushEdgeColliders.Clear();
 
         Debug.Log("🔄 Complete reset performed - all colors, workers, and ambushes cleared");
     }
@@ -1886,6 +2531,9 @@ public class InteractionManager : Singleton<InteractionManager>
         completedPaths.Clear();
         currentPathIndex = -1;
 
+        // Reset mode to None - will be set again when role is assigned
+        currentMode = InteractionMode.None;
+
         // Reset resources
         currentGold = 0;
         currentWood = 0;
@@ -1900,6 +2548,10 @@ public class InteractionManager : Singleton<InteractionManager>
         // Reset ambush state
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;
+        pendingDeletionIndex = -1;
+        pendingPathDeletionIndex = -1;
+        pendingWorkerPurchase = false; // Reset pending worker purchase flag
+        pendingWagonUpgrade = false; // Reset pending wagon upgrade flag
 
         // Reset path creation state
         pathComplete = false;
@@ -1907,6 +2559,7 @@ public class InteractionManager : Singleton<InteractionManager>
         selectedResourceField = default(Hex);
 
         // Clear visual elements
+        HideAmbushPreview(); // Clean up any preview materials
         ForceCompleteReset();
 
         // Clear collections

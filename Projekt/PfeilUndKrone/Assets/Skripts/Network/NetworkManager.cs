@@ -11,8 +11,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
     private int PORT = 8080;
-
-    private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
+    private String IP = "localhost";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
@@ -295,6 +294,22 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
                         // Notify InteractionManager that ambush purchase was denied
                         InteractionManager.Instance.OnAmbushPurchaseDenied("Not enough resources!");
+                        break;
+
+                    case "delete_ambush_approved":
+                        Debug.Log("✅ Server approved ambush deletion - resources refunded!");
+                        UIManager.Instance.UpdateInfoText("Ambush deleted and resources refunded!");
+
+                        // Notify InteractionManager that ambush deletion was approved
+                        InteractionManager.Instance.OnAmbushDeletionApproved();
+                        break;
+
+                    case "delete_path_approved":
+                        Debug.Log("✅ Server approved path deletion - resources refunded!");
+                        UIManager.Instance.UpdateInfoText("Path deleted and worker costs refunded!");
+
+                        // Notify InteractionManager that path deletion was approved
+                        InteractionManager.Instance.OnPathDeletionApproved();
                         break;
 
                     case "worker_approved":
