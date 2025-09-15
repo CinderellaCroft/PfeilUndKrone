@@ -72,6 +72,8 @@ public class InteractionManager : Singleton<InteractionManager>
     private const int ambushCost = 12;
     private int purchasedAmbushes = 0; // How many ambushes bandit has purchased
     private bool isInAmbushPlacementMode = false;
+    private int pendingDeletionIndex = -1; // For server-validated deletion
+    private int pendingPathDeletionIndex = -1; // For server-validated path deletion
 
     // King resources and worker buying system
     private int currentGrain = 0; // Will be updated from server
@@ -80,6 +82,8 @@ public class InteractionManager : Singleton<InteractionManager>
     private const int workerWoodCost = 8;
     private const int wagonWoodCost = 25;
     private int ownedWorkers = 0;
+    private bool pendingWorkerPurchase = false; // For server-validated worker purchase
+    private bool pendingWagonUpgrade = false; // For server-validated wagon upgrade
     private int usedWorkers = 0;
     private int ownedWagonWorkers = 0;
     private int usedWagonWorkers = 0;
@@ -764,7 +768,7 @@ public class InteractionManager : Singleton<InteractionManager>
     // === WORKER BUYING SYSTEM FOR KING ===
     public bool CanBuyWorker()
     {
-        return currentGrain >= workerGrainCost && currentWood >= workerWoodCost && currentMode == InteractionMode.PathSelection;
+        return currentGrain >= workerGrainCost && currentWood >= workerWoodCost && currentMode == InteractionMode.PathSelection && !pendingWorkerPurchase;
     }
 
     public string GetWorkerBuyButtonText()
@@ -798,11 +802,14 @@ public class InteractionManager : Singleton<InteractionManager>
             Debug.Log($"[InteractionManager] NetworkManager.Instance found: {net != null}");
         }
 
+        // Set pending flag to prevent multiple purchases
+        pendingWorkerPurchase = true;
+
         // Send buy request to server
         var payload = new { grainCost = workerGrainCost, woodCost = workerWoodCost };
         net.Send("buy_worker", payload);
 
-        Debug.Log($"Worker purchase request sent (Cost: {workerGrainCost} grain, {workerWoodCost} wood)");
+        Debug.Log($"Worker purchase request sent (Cost: {workerGrainCost} grain, {workerWoodCost} wood) - Pending: {pendingWorkerPurchase}");
 
         // Server will respond with worker_approved or worker_denied
         // On approval, server will update our resources and we can place the worker
@@ -811,21 +818,23 @@ public class InteractionManager : Singleton<InteractionManager>
     public void OnWorkerPurchaseApproved()
     {
         ownedWorkers++;
-        Debug.Log($"Worker purchase approved! Total workers: {ownedWorkers}");
+        pendingWorkerPurchase = false; // Clear pending flag
+        Debug.Log($"Worker purchase approved! Total workers: {ownedWorkers} - Pending cleared: {!pendingWorkerPurchase}");
         UIManager.Instance.UpdateInfoText($"Worker purchased! You now have {ownedWorkers - usedWorkers} available workers.");
         UIManager.Instance.UpdateWorkerText();
     }
 
     public void OnWorkerPurchaseDenied(string reason)
     {
-        Debug.LogError($"Worker purchase denied: {reason}");
+        pendingWorkerPurchase = false; // Clear pending flag
+        Debug.LogError($"Worker purchase denied: {reason} - Pending cleared: {!pendingWorkerPurchase}");
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
     // Wagon Worker Management
     public bool CanUpgradeWorkerToWagon()
     {
-        return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0;
+        return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0 && !pendingWagonUpgrade;
     }
 
     public void UpgradeWorkerToWagon()
@@ -839,10 +848,13 @@ public class InteractionManager : Singleton<InteractionManager>
         // Ensure net is available
         if (net == null) net = NetworkManager.Instance;
 
+        // Set pending flag to prevent multiple upgrades
+        pendingWagonUpgrade = true;
+
         var payload = new { woodCost = wagonWoodCost };
         net.Send("upgrade_worker_wagon", payload);
 
-        Debug.Log($"Wagon upgrade request sent (Cost: {wagonWoodCost} wood)");
+        Debug.Log($"Wagon upgrade request sent (Cost: {wagonWoodCost} wood) - Pending: {pendingWagonUpgrade}");
         // Server will respond with wagon_upgrade_approved or wagon_upgrade_denied
     }
 
@@ -850,14 +862,16 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         ownedWorkers = totalWorkers;
         ownedWagonWorkers = wagonWorkers;
-        Debug.Log($"Wagon upgrade approved! Wagon workers: {ownedWagonWorkers}/{ownedWorkers}");
+        pendingWagonUpgrade = false; // Clear pending flag
+        Debug.Log($"Wagon upgrade approved! Wagon workers: {ownedWagonWorkers}/{ownedWorkers} - Pending cleared: {!pendingWagonUpgrade}");
         UIManager.Instance.UpdateInfoText($"Worker upgraded to wagon! You now have {ownedWagonWorkers} wagon workers.");
         UIManager.Instance.UpdateWorkerText();
     }
 
     public void OnWagonUpgradeDenied(string reason)
     {
-        Debug.LogError($"Wagon upgrade denied: {reason}");
+        pendingWagonUpgrade = false; // Clear pending flag
+        Debug.LogError($"Wagon upgrade denied: {reason} - Pending cleared: {!pendingWagonUpgrade}");
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
@@ -1005,6 +1019,114 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         Debug.LogError($"❌ Ambush purchase denied: {reason}");
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
+    }
+
+    public void OnAmbushDeletionApproved()
+    {
+        if (pendingDeletionIndex < 0 || pendingDeletionIndex >= placedAmbushes.Count)
+        {
+            Debug.LogWarning("⚠️ Invalid pending deletion index, cannot complete deletion");
+            pendingDeletionIndex = -1;
+            return;
+        }
+
+        var ambush = placedAmbushes[pendingDeletionIndex];
+
+        // Reset vertex colors for the ambush vertices
+        UpdateVertexHighlightsForAmbushVertices(ambush.cornerA);
+        UpdateVertexHighlightsForAmbushVertices(ambush.cornerB);
+
+        // Destroy the visual orb object
+        if (pendingDeletionIndex < ambushOrbObjects.Count && ambushOrbObjects[pendingDeletionIndex] != null)
+        {
+            Destroy(ambushOrbObjects[pendingDeletionIndex]);
+            ambushOrbObjects.RemoveAt(pendingDeletionIndex);
+        }
+
+        // Remove the ambush data
+        placedAmbushes.RemoveAt(pendingDeletionIndex);
+
+        // Decrease purchased ambushes counter since this ambush is deleted
+        if (purchasedAmbushes > 0)
+        {
+            purchasedAmbushes--;
+        }
+
+        Debug.Log($"✅ Ambush deletion approved! Ambush between vertices ({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R}) and ({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R}) deleted");
+        
+        // Reset pending deletion
+        pendingDeletionIndex = -1;
+
+        // Note: Resource updates are handled by server via 'resource_update' message
+        // UI will be updated when UpdateResources() is called by NetworkManager
+    }
+
+    public void OnPathDeletionApproved()
+    {
+        if (pendingPathDeletionIndex < 0 || pendingPathDeletionIndex >= completedPaths.Count)
+        {
+            Debug.LogWarning("⚠️ Invalid pending path deletion index, cannot complete deletion");
+            pendingPathDeletionIndex = -1;
+            return;
+        }
+
+        var index = pendingPathDeletionIndex;
+        var pathVerts = completedPaths[index];
+        var isWagon = completedPathIsWagonWorker[index];
+        var resourceField = completedPathResourceFields[index];
+
+        // Reset vertex colors and hide edges
+        foreach (var vertex in pathVerts)
+        {
+            var go = GridVisualsManager.Instance.GetVertexGameObject(vertex);
+            if (go != null)
+            {
+                var r = go.GetComponent<Renderer>();
+                if (r != null) r.material.color = originalVertexColor;
+            }
+        }
+        for (int i = 1; i < pathVerts.Count; i++)
+        {
+            if (pathVerts[i - 1].TryGetEdgeTo(pathVerts[i], out var e))
+                GridVisualsManager.Instance.SetEdgeVisible(e, false);
+        }
+
+        // Refund worker usage
+        usedWorkers = Mathf.Max(0, usedWorkers - 1);
+        if (isWagon) usedWagonWorkers = Mathf.Max(0, usedWagonWorkers - 1);
+
+        // Remove any worker object on this resource field (best-effort)
+        var fieldCenter = resourceField.ToWorld(gridGen.hexRadius);
+        var nearest = resourceFieldWorkers
+            .Where(go => go != null)
+            .OrderBy(go => Vector3.SqrMagnitude(go.transform.position - new Vector3(fieldCenter.x, go.transform.position.y, fieldCenter.z)))
+            .FirstOrDefault();
+        if (nearest != null)
+        {
+            resourceFieldWorkers.Remove(nearest);
+            Destroy(nearest);
+        }
+
+        // Remove bookkeeping
+        completedPaths.RemoveAt(index);
+        completedPathResourceFields.RemoveAt(index);
+        completedPathIsWagonWorker.RemoveAt(index);
+        if (pathColorMap.ContainsKey(index)) pathColorMap.Remove(index);
+        // Reindex colors
+        pathColorMap = completedPaths
+            .Select((p, i) => new { i, color = pathColors[i % pathColors.Length] })
+            .ToDictionary(x => x.i, x => x.color);
+
+        Debug.Log($"✅ Path deletion approved! Path #{index} (wagon: {isWagon}) deleted");
+        
+        // Reset pending deletion
+        pendingPathDeletionIndex = -1;
+
+        // Update UI
+        UIManager.Instance.UpdateWorkerText();
+
+        // Note: Resource updates are handled by server via 'resource_update' message
+        // UI will be updated when UpdateResources() is called by NetworkManager
     }
 
     public int GetPurchasedAmbushCount()
@@ -1206,54 +1328,25 @@ public class InteractionManager : Singleton<InteractionManager>
     {
         if (index < 0 || index >= completedPaths.Count) return;
 
-        var pathVerts = completedPaths[index];
         var isWagon = completedPathIsWagonWorker[index];
-        var resourceField = completedPathResourceFields[index];
 
-        // Reset vertex colors and hide edges
-        foreach (var vertex in pathVerts)
-        {
-            var go = GridVisualsManager.Instance.GetVertexGameObject(vertex);
-            if (go != null)
-            {
-                var r = go.GetComponent<Renderer>();
-                if (r != null) r.material.color = originalVertexColor;
-            }
-        }
-        for (int i = 1; i < pathVerts.Count; i++)
-        {
-            if (pathVerts[i - 1].TryGetEdgeTo(pathVerts[i], out var e))
-                GridVisualsManager.Instance.SetEdgeVisible(e, false);
-        }
+        // Store the path index for deletion after server approval
+        pendingPathDeletionIndex = index;
 
-        // Refund worker usage
-        usedWorkers = Mathf.Max(0, usedWorkers - 1);
-        if (isWagon) usedWagonWorkers = Mathf.Max(0, usedWagonWorkers - 1);
+        Debug.Log($"🗑️ Requesting deletion of path #{index} (wagon: {isWagon})");
 
-        // Remove any worker object on this resource field (best-effort)
-        var fieldCenter = resourceField.ToWorld(gridGen.hexRadius);
-        var nearest = resourceFieldWorkers
-            .Where(go => go != null)
-            .OrderBy(go => Vector3.SqrMagnitude(go.transform.position - new Vector3(fieldCenter.x, go.transform.position.y, fieldCenter.z)))
-            .FirstOrDefault();
-        if (nearest != null)
-        {
-            resourceFieldWorkers.Remove(nearest);
-            Destroy(nearest);
-        }
+        // Send deletion request to server
+        if (net == null) net = NetworkManager.Instance;
+        var payload = new { 
+            grainCost = workerGrainCost, 
+            woodCost = workerWoodCost, 
+            wagonWoodCost = wagonWoodCost,
+            isWagonWorker = isWagon
+        };
+        net.Send("delete_path", payload);
 
-        // Remove bookkeeping
-        completedPaths.RemoveAt(index);
-        completedPathResourceFields.RemoveAt(index);
-        completedPathIsWagonWorker.RemoveAt(index);
-        if (pathColorMap.ContainsKey(index)) pathColorMap.Remove(index);
-        // Reindex colors
-        pathColorMap = completedPaths
-            .Select((p, i) => new { i, color = pathColors[i % pathColors.Length] })
-            .ToDictionary(x => x.i, x => x.color);
-
-        UIManager.Instance.UpdateWorkerText();
-        UIManager.Instance.UpdateInfoText("Path deleted and resources refunded");
+        var totalWoodCost = workerWoodCost + (isWagon ? wagonWoodCost : 0);
+        Debug.Log($"🗑️ Path deletion request sent (Refund: {workerGrainCost} grain + {totalWoodCost} wood)");
     }
 
     void DeleteAmbush(int index)
@@ -1262,46 +1355,21 @@ public class InteractionManager : Singleton<InteractionManager>
 
         var ambush = placedAmbushes[index];
 
-        // Reset vertex colors for the ambush vertices
-        UpdateVertexHighlightsForAmbushVertices(ambush.cornerA);
-        UpdateVertexHighlightsForAmbushVertices(ambush.cornerB);
+        // Store the ambush data for deletion after server approval
+        pendingDeletionIndex = index;
 
-        // Destroy the visual orb object
-        if (index < ambushOrbObjects.Count && ambushOrbObjects[index] != null)
-        {
-            Destroy(ambushOrbObjects[index]);
-            ambushOrbObjects.RemoveAt(index);
-        }
-
-        // Remove the ambush data
-        placedAmbushes.RemoveAt(index);
-
-        // Refund resources - determine which resource type was used for this ambush
-        // Since we don't store which resource was used, use the same logic as buying
+        // Determine which resource type should be refunded (same logic as buying)
         bool useWood = currentWood >= currentGrain;
-        if (useWood)
-        {
-            currentWood += ambushCost;
-        }
-        else
-        {
-            currentGrain += ambushCost;
-        }
+        string resourceType = useWood ? "wood" : "grain";
 
-        // Decrease purchased ambushes counter since this ambush is deleted
-        if (purchasedAmbushes > 0)
-        {
-            purchasedAmbushes--;
-        }
+        Debug.Log($"🗑️ Requesting deletion of ambush between vertices ({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R}) and ({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R})");
 
-        Debug.Log($"✅ Ambush deleted between vertices ({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R}) and ({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R})");
-        UIManager.Instance.UpdateInfoText($"Ambush deleted and {ambushCost} resources refunded");
-        
-        // Update UI to reflect resource changes
-        if (UIManager.Instance != null)
-        {
-            UIManager.Instance.UpdateResourcesText(currentGold, currentWood, currentGrain);
-        }
+        // Send deletion request to server
+        if (net == null) net = NetworkManager.Instance;
+        var payload = new { cost = ambushCost, resourceType = resourceType };
+        net.Send("delete_ambush", payload);
+
+        Debug.Log($"🗑️ Ambush deletion request sent (Refund: {ambushCost} {resourceType})");
     }
 
     public bool SubmitPath()
@@ -2090,6 +2158,8 @@ public class InteractionManager : Singleton<InteractionManager>
         pathCreationState = PathCreationState.NotCreating;
         currentPathIndex = -1;
         isInAmbushPlacementMode = false;
+        pendingWorkerPurchase = false; // Reset pending worker purchase flag
+        pendingWagonUpgrade = false; // Reset pending wagon upgrade flag
 
         if (!isMoving)
         {
@@ -2159,6 +2229,8 @@ public class InteractionManager : Singleton<InteractionManager>
         pathColorMap.Clear();
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;
+        pendingDeletionIndex = -1;
+        pendingPathDeletionIndex = -1;
         ownedWorkers = 0;
         usedWorkers = 0;
         ownedWagonWorkers = 0;
@@ -2288,6 +2360,10 @@ public class InteractionManager : Singleton<InteractionManager>
         // Reset ambush state
         purchasedAmbushes = 0;
         isInAmbushPlacementMode = false;
+        pendingDeletionIndex = -1;
+        pendingPathDeletionIndex = -1;
+        pendingWorkerPurchase = false; // Reset pending worker purchase flag
+        pendingWagonUpgrade = false; // Reset pending wagon upgrade flag
 
         // Reset path creation state
         pathComplete = false;
