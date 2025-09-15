@@ -606,6 +606,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices starting from resource field ({resourceField.Q},{resourceField.R}) - Workers available: {GetAvailableWorkerCount()}");
         UIManager.Instance.UpdateInfoText($"Path confirmed! Workers available: {GetAvailableWorkerCount()}");
         UIManager.Instance.UpdateWorkerText();
+        UIManager.Instance.UpdateDoneButtonState();
         currentPathIndex = -1;
     }
 
@@ -1015,6 +1016,16 @@ public class InteractionManager : Singleton<InteractionManager>
         return ownedWagonWorkers - usedWagonWorkers;
     }
 
+    public bool HasCompletedPaths()
+    {
+        return completedPaths.Count > 0;
+    }
+
+    public int GetCompletedPathsCount()
+    {
+        return completedPaths.Count;
+    }
+
     public int GetAvailableRegularWorkerCount()
     {
         return (ownedWorkers - ownedWagonWorkers) - (usedWorkers - usedWagonWorkers);
@@ -1209,6 +1220,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         // Update UI
         UIManager.Instance.UpdateWorkerText();
+        UIManager.Instance.UpdateDoneButtonState();
 
         // Note: Resource updates are handled by server via 'resource_update' message
         // UI will be updated when UpdateResources() is called by NetworkManager
@@ -1494,7 +1506,9 @@ public class InteractionManager : Singleton<InteractionManager>
         if (completedPaths.Count == 0)
         {
             Debug.LogError("❌ Error: No paths created!");
-            UIManager.Instance.UpdateInfoText("Error: No paths created!");
+            UIManager.Instance.UpdateInfoText("Error: No paths created! Click 'New Path' to start creating a path.");
+            
+            ResetToPathCreationState();
             return false;
         }
 
@@ -2298,6 +2312,24 @@ public class InteractionManager : Singleton<InteractionManager>
 
         if (hasHoverEdge) { GridVisualsManager.Instance.SetEdgeVisible(hoverEdge, false); hasHoverEdge = false; }
         GridVisualsManager.Instance.HideAllEdges();
+    }
+
+    private void ResetToPathCreationState()
+    {
+        // Reset current path creation state but keep completed paths
+        selectedVertices.Clear();
+        validNextVertices.Clear();
+        availableStartVertices.Clear();
+        selectedResourceField = default;
+        pathComplete = false;
+        pathCreationState = PathCreationState.NotCreating;
+        currentPathIndex = -1;
+        currentPathUseWagonWorker = false;
+
+        // Clear any path highlights
+        ResetVertexHighlights();
+        
+        Debug.Log("✅ State reset to allow new path creation");
     }
 
     public void ForceCompleteReset()

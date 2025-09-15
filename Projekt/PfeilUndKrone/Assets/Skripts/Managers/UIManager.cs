@@ -332,7 +332,29 @@ public class UIManager : Singleton<UIManager>
     {
         if (doneButton != null && doneButton.gameObject != null)
         {
-            doneButton.gameObject.SetActive(isActive);
+            // For King planning phase, only activate if paths exist
+            if (isActive && GameManager.Instance?.CurrentTurn == GameTurn.KingPlanning)
+            {
+                bool hasCompletedPaths = InteractionManager.Instance?.HasCompletedPaths() ?? false;
+                doneButton.gameObject.SetActive(hasCompletedPaths);
+                
+                if (doneButton.TryGetComponent<UnityEngine.UI.Button>(out var buttonComponent))
+                {
+                    buttonComponent.interactable = hasCompletedPaths;
+                }
+            }
+            else
+            {
+                doneButton.gameObject.SetActive(isActive);
+            }
+        }
+    }
+
+    public void UpdateDoneButtonState()
+    {
+        if (GameManager.Instance?.CurrentTurn == GameTurn.KingPlanning)
+        {
+            SetDoneButtonActive(true);
         }
     }
 
@@ -617,6 +639,13 @@ public class UIManager : Singleton<UIManager>
         // Check which turn it is to send the correct message
         if (GameManager.Instance.CurrentTurn == GameTurn.KingPlanning)
         {
+            // Check if player has completed paths
+            if (!InteractionManager.Instance.HasCompletedPaths())
+            {
+                UpdateInfoText("Please create at least one path before submitting! Click 'New Path' to start.");
+                return;
+            }
+
             bool success = InteractionManager.Instance.SubmitPath();
             if (success)
             {
@@ -624,7 +653,7 @@ public class UIManager : Singleton<UIManager>
                 SetKingButtonsActive(false);
                 SetDoneButtonActive(false);
             }
-            // If submission failed, keep buttons visible so player can try again
+            // If submission failed, buttons remain visible for retry
         }
         else if (GameManager.Instance.CurrentTurn == GameTurn.BanditPlanning)
         {
