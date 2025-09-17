@@ -157,14 +157,18 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             hexObjects[hex] = go;
         }
 
-        foreach (var vertex in gridGenerator.Model.AllVertices)
+        // Only for King role
+        if (GameManager.Instance.MyRole == PlayerRole.King)
         {
-            var pos = vertex.ToWorld(radius);
-            pos.y += 0.4f; // Raise corner markers higher
-            var go = Instantiate(vertexMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
-            go.name = vertex.ToString();
-            var vm = go.AddComponent<VertexMarker>(); vm.vertex = vertex; vm.interaction = interactionManager;
-            hexVertexObjects[vertex] = go;
+            foreach (var vertex in gridGenerator.Model.AllVertices)
+            {
+                var pos = vertex.ToWorld(radius);
+                pos.y += 0.4f;
+                var go = Instantiate(vertexMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
+                go.name = vertex.ToString();
+                var vm = go.AddComponent<VertexMarker>(); vm.vertex = vertex; vm.interaction = interactionManager;
+                hexVertexObjects[vertex] = go;
+            }
         }
 
         foreach (var edge in gridGenerator.Model.AllEdges)
