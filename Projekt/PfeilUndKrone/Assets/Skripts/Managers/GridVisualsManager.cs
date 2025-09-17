@@ -31,6 +31,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     [FormerlySerializedAs("RebelCastlePrefab")] public GameObject BanditCastlePrefab;
     [FormerlySerializedAs("RebelMoatPrefab")] public GameObject BanditMoatPrefab;
     public List<GameObject> unknownResourcePrefabs;
+    [FormerlySerializedAs("RebelDeskPrefab")] public GameObject BanditDeskPrefab;
 
     [Header("Other Prefabs")]
     public GameObject desertPrefab;
@@ -170,6 +171,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
                 hexVertexObjects[vertex] = go;
             }
         }
+        else Instantiate(BanditDeskPrefab, new Vector3(0f, -15.25f, 3), Quaternion.identity, hexFieldContainer);
 
         foreach (var edge in gridGenerator.Model.AllEdges)
         {
