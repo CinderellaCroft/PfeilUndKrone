@@ -438,6 +438,7 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             SetVertexColor(vertex, highlightColor);
             highlightedVertices.Add(vertex);
+            GridVisualsManager.Instance?.SetVertexVisible(vertex, true);
         }
     }
 
@@ -479,6 +480,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         SetVertexColor(vertex, highlightColor);
         highlightedVertices.Add(vertex);
+        GridVisualsManager.Instance?.SetVertexVisible(vertex, true);
     }
 
     // Old UpdateAmbushHoverEdge() method removed - now using Orb-based preview system with edge colliders
@@ -646,6 +648,15 @@ public class InteractionManager : Singleton<InteractionManager>
         VisualizeCompletedPath(currentPathIndex, pathColor);
         SpawnWorkerOnResourceField(selectedResourceField, currentPathIndex);
 
+        GridVisualsManager.Instance?.HideAllVertices();
+        GridVisualsManager.Instance?.ShowVerticesForPath(pathList);
+        
+        // show vertices for all previously completed paths
+        for (int i = 0; i < completedPaths.Count - 1; i++)
+        {
+            GridVisualsManager.Instance?.ShowVerticesForPath(completedPaths[i]);
+        }
+
         pathCreationState = PathCreationState.NotCreating;
         selectedVertices.Clear();
         validNextVertices.Clear();
@@ -653,6 +664,9 @@ public class InteractionManager : Singleton<InteractionManager>
         selectedResourceField = default;
         pathComplete = false;
         currentPathUseWagonWorker = false;
+
+        // Reset all vertex highlights to clean up any remaining highlighted vertices
+        ResetAllVertexHighlights();
 
         var resourceField = completedPathResourceFields[currentPathIndex];
         Debug.Log($"Confirmed path #{currentPathIndex + 1} with {pathList.Count} vertices starting from resource field ({resourceField.Q},{resourceField.R}) - Workers available: {GetAvailableWorkerCount()}");
@@ -1307,6 +1321,9 @@ public class InteractionManager : Singleton<InteractionManager>
             ToggleVertexHighlight(vertex); // Highlight available start vertices
         }
 
+        // Show vertices around the selected resource field
+        GridVisualsManager.Instance?.ShowVerticesForSelectedResourceField(h);
+
         Debug.Log($"✅ Resource field {fieldType} at ({h.Q},{h.R}) selected. Now select a corner to start the path.");
     }
 
@@ -1375,8 +1392,16 @@ public class InteractionManager : Singleton<InteractionManager>
 
             selectedVertices.Add(v);
             pathCreationState = PathCreationState.Creating;
+            GridVisualsManager.Instance?.SetVertexVisible(v, true);
 
             validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(v).Except(centralVertices));
+            
+            // Make all valid next vertices visible
+            foreach (var nextVertex in validNextVertices)
+            {
+                GridVisualsManager.Instance?.SetVertexVisible(nextVertex, true);
+            }
+            
             UpdateEndVertexHighlighting();
 
             Debug.Log($"✅ Start vertex selected: ({v.Hex.Q},{v.Hex.R}) Direction: {v.Direction}");
@@ -1445,6 +1470,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         selectedVertices.Add(v);
         ToggleVertexHighlight(v);
+        GridVisualsManager.Instance?.SetVertexVisible(v, true);
         if (centralVertices.Contains(v))
         {
             pathComplete = true;
@@ -1476,8 +1502,29 @@ public class InteractionManager : Singleton<InteractionManager>
         foreach (var cv in centralVertices)
         {
             bool isHighlighted = highlightedVertices.Contains(cv);
-            if (showEnds && !isHighlighted) ToggleVertexHighlight(cv);
-            else if (!showEnds && isHighlighted) ToggleVertexHighlight(cv);
+            if (showEnds && !isHighlighted) 
+            {
+                ToggleVertexHighlight(cv);
+                GridVisualsManager.Instance?.SetVertexVisible(cv, true);
+            }
+            else if (!showEnds && isHighlighted) 
+            {
+                ToggleVertexHighlight(cv);
+                // Don't hide vertices that might be part of completed paths
+                bool isPartOfCompletedPath = completedPaths.Any(path => path.Contains(cv));
+                if (!isPartOfCompletedPath)
+                {
+                    GridVisualsManager.Instance?.SetVertexVisible(cv, false);
+                }
+            }
+        }
+        
+        if (pathCreationState == PathCreationState.Creating)
+        {
+            foreach (var vertex in validNextVertices)
+            {
+                GridVisualsManager.Instance?.SetVertexVisible(vertex, true);
+            }
         }
     }
     
@@ -2300,12 +2347,23 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public void StartSynchronizedAnimation(List<HexVertex> kingPath, List<NetworkingDTOs.AmbushEdge> banditAmbushes)
     {
+        // Hide all vertices first, then show only path vertices
+        GridVisualsManager.Instance?.HideAllVertices();
+        GridVisualsManager.Instance?.ShowVerticesForPath(kingPath);
+        
         DisplayAnimationOrbs(banditAmbushes);
         StartCoroutine(DelayedWorkerExecution(kingPath, 2f));
     }
 
     public void StartSynchronizedAnimationMultiplePaths(List<List<HexVertex>> kingPaths, List<NetworkingDTOs.AmbushEdge> banditAmbushes)
     {
+        // Hide all vertices first, then show only path vertices
+        GridVisualsManager.Instance?.HideAllVertices();
+        foreach (var path in kingPaths)
+        {
+            GridVisualsManager.Instance?.ShowVerticesForPath(path);
+        }
+        
         DisplayAnimationOrbs(banditAmbushes);
         StartCoroutine(DelayedWorkerExecutionMultiple(kingPaths, 2f));
     }
@@ -2393,6 +2451,11 @@ public class InteractionManager : Singleton<InteractionManager>
 
         // Clear any path highlights
         ResetVertexHighlights();
+        GridVisualsManager.Instance?.HideAllVertices();
+        foreach (var path in completedPaths)
+        {
+            GridVisualsManager.Instance?.ShowVerticesForPath(path);
+        }
         
         Debug.Log("✅ State reset to allow new path creation");
     }
@@ -2516,6 +2579,7 @@ public class InteractionManager : Singleton<InteractionManager>
         workerMovingStates.Clear();
 
         GridVisualsManager.Instance.HideAllEdges();
+        GridVisualsManager.Instance?.HideAllVertices();
 
         completedPaths.Clear();
         completedPathResourceFields.Clear();
@@ -2575,6 +2639,9 @@ public class InteractionManager : Singleton<InteractionManager>
         // Clear visual elements
         HideAmbushPreview(); // Clean up any preview materials
         ForceCompleteReset();
+                
+        // Hide all vertices at the start of a new game
+        GridVisualsManager.Instance?.HideAllVertices();
 
         // Clear collections
         resourceFieldWorkers.Clear();
