@@ -1419,7 +1419,11 @@ public class InteractionManager : Singleton<InteractionManager>
                 pathComplete = false;
                 pathCreationState = PathCreationState.Creating;
                 var last = selectedVertices.Last();
-                validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(last).Except(selectedVertices));
+                var undoCandidates = GetNeighborVertices(last).Except(selectedVertices);
+                if (selectedVertices.Count < 3)
+                    undoCandidates = undoCandidates.Except(centralVertices);
+                validNextVertices = new HashSet<HexVertex>(undoCandidates);
+                UpdateEndVertexHighlighting();
             }
 
             // Update UI (not ready anymore)
@@ -1430,7 +1434,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         if (!validNextVertices.Contains(v))
         {
-            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last()));
+            Debug.LogError($"Error: This move is not allowed! ({v.Hex.Q},{v.Hex.R})");
             return;
         }
 
