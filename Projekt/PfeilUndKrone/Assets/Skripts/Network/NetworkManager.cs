@@ -11,7 +11,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 {
 
     private int PORT = 8080;
-    private String IP = "localhost";//   "localhost"     "172.104.235.41"
+    private String IP = "172.104.235.41";//   "localhost"     "172.104.235.41"
     private WebSocket websocket;
     private bool isGameOver = false; // Flag to track if the game has ended.
 
