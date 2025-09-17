@@ -158,20 +158,25 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             hexObjects[hex] = go;
         }
 
-        // Only for King role
-        if (GameManager.Instance.MyRole == PlayerRole.King)
+        // Create vertex objects & set visibility based on role
+        foreach (var vertex in gridGenerator.Model.AllVertices)
         {
-            foreach (var vertex in gridGenerator.Model.AllVertices)
-            {
-                var pos = vertex.ToWorld(radius);
-                pos.y += 0.4f;
-                var go = Instantiate(vertexMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
-                go.name = vertex.ToString();
-                var vm = go.AddComponent<VertexMarker>(); vm.vertex = vertex; vm.interaction = interactionManager;
-                hexVertexObjects[vertex] = go;
-            }
+            var pos = vertex.ToWorld(radius);
+            pos.y += 0.4f;
+            var go = Instantiate(vertexMarkerPrefab, pos, Quaternion.identity, hexFieldContainer);
+            go.name = vertex.ToString();
+            var vm = go.AddComponent<VertexMarker>(); vm.vertex = vertex; vm.interaction = interactionManager;
+            hexVertexObjects[vertex] = go;
+            
+            // Initially hide all vertices - they will be shown based on game state
+            go.SetActive(false);
         }
-        else Instantiate(BanditDeskPrefab, new Vector3(0f, -15.25f, 3), Quaternion.identity, hexFieldContainer);
+
+        // Add bandit desk for bandit role
+        if (GameManager.Instance.MyRole == PlayerRole.Bandit)
+        {
+            Instantiate(BanditDeskPrefab, new Vector3(0f, -15.25f, 3), Quaternion.identity, hexFieldContainer);
+        }
 
         foreach (var edge in gridGenerator.Model.AllEdges)
         {
@@ -189,6 +194,57 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
     public GameObject GetVertexGameObject(HexVertex vertex)
     {
         return hexVertexObjects.TryGetValue(vertex, out var go) ? go : null;
+    }
+
+    public void SetVertexVisible(HexVertex vertex, bool visible)
+    {
+        if (hexVertexObjects.TryGetValue(vertex, out var go))
+        {
+            go.SetActive(visible);
+        }
+    }
+
+    public void SetVerticesVisible(IEnumerable<HexVertex> vertices, bool visible)
+    {
+        foreach (var vertex in vertices)
+        {
+            SetVertexVisible(vertex, visible);
+        }
+    }
+
+    public void HideAllVertices()
+    {
+        foreach (var go in hexVertexObjects.Values)
+        {
+            go.SetActive(false);
+        }
+    }
+
+    public void ShowVerticesForSelectedResourceField(Hex resourceHex)
+    {
+        if (GameManager.Instance.MyRole != PlayerRole.King) return;
+        
+        // Show vertices around the selected resource field
+        var hexRadius = gridGenerator.hexRadius;
+        var vertices = GetVerticesAroundHex(resourceHex);
+        SetVerticesVisible(vertices, true);
+    }
+
+    public void ShowVerticesForPath(IEnumerable<HexVertex> pathVertices)
+    {
+        SetVerticesVisible(pathVertices, true);
+    }
+
+    private IEnumerable<HexVertex> GetVerticesAroundHex(Hex hex)
+    {
+        // Get all vertices that belong to this hex
+        var vertices = new List<HexVertex>();
+        for (int i = 0; i < 6; i++)
+        {
+            var direction = (VertexDirection)i;
+            vertices.Add(new HexVertex(hex, direction));
+        }
+        return vertices;
     }
 
     void ClearPrevious()
