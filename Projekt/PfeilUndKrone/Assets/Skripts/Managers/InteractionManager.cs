@@ -47,6 +47,15 @@ public class InteractionManager : Singleton<InteractionManager>
     [Header("Ambush collision tuning")]
     [SerializeField] private float ambushHitRadius = 0.25f;
 
+    [Header("Worker Models")]
+    public GameObject workerModelWood;
+    public GameObject workerModelWheat;
+    public GameObject workerModelOre;
+    public GameObject workerModelFallback;
+
+    [Tooltip("Grad pro Sekunde für das Drehen zum nächsten Wegpunkt")]
+    public float workerRotateDegreesPerSec = 540f;
+
     private InteractionMode currentMode = InteractionMode.None;
 
     // Multiple paths system for King
@@ -115,7 +124,7 @@ public class InteractionManager : Singleton<InteractionManager>
     protected override void Awake()
     {
         base.Awake();
-        workerObj = Instantiate(workerPrefab); workerObj.SetActive(false);
+        //workerObj = Instantiate(workerPrefab); workerObj.SetActive(false);
         //net.OnPathApproved += ExecuteServerPath;
         //net.OnAmbushConfirmed += ConfirmAmbushPlacement;
     }
@@ -157,7 +166,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
 
         Debug.Log("Creating ambush edge colliders...");
-        
+
         // Clear any existing colliders
         foreach (var collider in ambushEdgeColliders)
         {
@@ -176,7 +185,7 @@ public class InteractionManager : Singleton<InteractionManager>
                 // Create an ordered pair to avoid duplicates
                 var pair1 = (vertex, neighbor);
                 var pair2 = (neighbor, vertex);
-                
+
                 if (processedPairs.Contains(pair1) || processedPairs.Contains(pair2))
                     continue;
 
@@ -223,7 +232,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         // Make the collider invisible but interactive
         edgeGO.layer = 0; // Default layer
-        
+
         ambushEdgeColliders.Add(edgeGO);
     }
 
@@ -281,7 +290,7 @@ public class InteractionManager : Singleton<InteractionManager>
         // Old ambush system commented out - replaced with edge-based hover system
         // else if (currentMode == InteractionMode.AmbushPlacement) HandleAmbushClick(v);
     }
-    
+
     // Right-click to delete a completed path (only when the player is not in the creating mode)
     public void OnRightClickVertex(HexVertex v)
     {
@@ -297,7 +306,7 @@ public class InteractionManager : Singleton<InteractionManager>
             }
         }
     }
-    
+
     public void OnRightClickEdge(HexEdge e)
     {
         if (currentMode != InteractionMode.PathSelection) return;
@@ -692,11 +701,16 @@ public class InteractionManager : Singleton<InteractionManager>
 
         // Calculate the world position of the center of the resource field
         Vector3 fieldCenter = resourceField.ToWorld(gridGen.hexRadius);
-        fieldCenter.y = 0.35f; // Elevate slightly above the field
+        fieldCenter.y = 0.8f; // Elevate slightly above the field
 
         // Instantiate worker at the field center
         GameObject resourceWorker = Instantiate(workerPrefab, fieldCenter, Quaternion.identity);
         resourceWorker.SetActive(true);
+
+        if (TryGetResourceTypeFromHex(resourceField, out var rt))
+            SetWorkerModel(resourceWorker, rt);
+        else
+            SetWorkerModel(resourceWorker, (ResourceType)(-1));
 
         // Store the worker for later cleanup
         resourceFieldWorkers.Add(resourceWorker);
@@ -730,10 +744,16 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             var resourceField = submittedResourceFields[i];
             Vector3 fieldCenter = resourceField.ToWorld(gridGen.hexRadius);
-            fieldCenter.y = 0.35f; // Elevate slightly above the field
+            fieldCenter.y = 0.47f; // Elevate slightly above the field
 
             GameObject banditVisibleWorker = Instantiate(workerPrefab, fieldCenter, Quaternion.identity);
             banditVisibleWorker.SetActive(true);
+
+            if (TryGetResourceTypeFromHex(resourceField, out var rt))
+                SetWorkerModel(banditVisibleWorker, rt);
+            else
+                SetWorkerModel(banditVisibleWorker, (ResourceType)(-1));
+
             resourceFieldWorkers.Add(banditVisibleWorker);
 
             Debug.Log($"Bandit can see worker on resource field ({resourceField.Q},{resourceField.R})");
@@ -1185,7 +1205,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
 
         Debug.Log($"✅ Ambush deletion approved! Ambush between vertices ({ambush.cornerA.Hex.Q},{ambush.cornerA.Hex.R}) and ({ambush.cornerB.Hex.Q},{ambush.cornerB.Hex.R}) deleted");
-        
+
         // Reset pending deletion
         pendingDeletionIndex = -1;
 
@@ -1245,7 +1265,7 @@ public class InteractionManager : Singleton<InteractionManager>
             .ToDictionary(x => x.i, x => x.color);
 
         Debug.Log($"✅ Path deletion approved! Path #{index} (wagon: {isWagon}) deleted");
-        
+
         // Reset pending deletion
         pendingPathDeletionIndex = -1;
 
@@ -1480,7 +1500,7 @@ public class InteractionManager : Singleton<InteractionManager>
             else if (!showEnds && isHighlighted) ToggleVertexHighlight(cv);
         }
     }
-    
+
     void DeleteCompletedPath(int index)
     {
         if (index < 0 || index >= completedPaths.Count) return;
@@ -1494,9 +1514,10 @@ public class InteractionManager : Singleton<InteractionManager>
 
         // Send deletion request to server
         if (net == null) net = NetworkManager.Instance;
-        var payload = new { 
-            grainCost = workerGrainCost, 
-            woodCost = workerWoodCost, 
+        var payload = new
+        {
+            grainCost = workerGrainCost,
+            woodCost = workerWoodCost,
             wagonWoodCost = wagonWoodCost,
             isWagonWorker = isWagon
         };
@@ -1542,7 +1563,7 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             Debug.LogError("❌ Error: No paths created!");
             UIManager.Instance.UpdateInfoText("Error: No paths created! Click 'New Path' to start creating a path.");
-            
+
             ResetToPathCreationState();
             return false;
         }
@@ -1609,6 +1630,11 @@ public class InteractionManager : Singleton<InteractionManager>
         if (workerObj == null)
         {
             workerObj = Instantiate(workerPrefab);
+
+            if (TryInferResourceTypeFromPathVertices(path, out var rt))
+                SetWorkerModel(workerObj, rt);
+            else
+                SetWorkerModel(workerObj, (ResourceType)(-1));
         }
 
         workerObj.transform.position = serverPathWorld[0];
@@ -1628,6 +1654,18 @@ public class InteractionManager : Singleton<InteractionManager>
 
         var curr = workerObj.transform.position;
         var targ = serverPathWorld[pathStep];
+
+        // Bewegungsrichtung (Y ausblenden)
+        Vector3 dir = targ - curr; dir.y = 0f;
+        if (dir.sqrMagnitude > 1e-6f)
+        {
+            var desired = Quaternion.LookRotation(dir);
+            workerObj.transform.rotation = Quaternion.RotateTowards(
+                workerObj.transform.rotation,
+                desired,
+                workerRotateDegreesPerSec * Time.deltaTime
+            );
+        }
 
         float stepDist = workerSpeed * Time.deltaTime;
         var next = Vector3.MoveTowards(curr, targ, stepDist);
@@ -1679,6 +1717,17 @@ public class InteractionManager : Singleton<InteractionManager>
         var pathWorld = allServerPathsWorld[workerIndex];
         var curr = workerObj.transform.position;
         var targ = pathWorld[workerPathSteps[workerIndex]];
+
+        Vector3 dir = targ - curr; dir.y = 0f;
+        if (dir.sqrMagnitude > 1e-6f)
+        {
+            var desired = Quaternion.LookRotation(dir);
+            workerObj.transform.rotation = Quaternion.RotateTowards(
+                workerObj.transform.rotation,
+                desired,
+                workerRotateDegreesPerSec * Time.deltaTime
+            );
+        }
 
         float stepDist = workerSpeed * Time.deltaTime;
         var next = Vector3.MoveTowards(curr, targ, stepDist);
@@ -1760,6 +1809,12 @@ public class InteractionManager : Singleton<InteractionManager>
 
             // Create worker for this path
             var workerObj = Instantiate(workerPrefab);
+
+            if (TryInferResourceTypeFromPathVertices(path, out var rt))
+                SetWorkerModel(workerObj, rt);
+            else
+                SetWorkerModel(workerObj, (ResourceType)(-1));
+
             workerObj.transform.position = pathWorld[0];
             workerObj.SetActive(true);
 
@@ -1773,34 +1828,72 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
-    void CheckCollisionWithOrbs(Vector3 workerPosition)
+    private bool TryGetResourceTypeFromHex(Hex h, out ResourceType rt)
     {
-        for (int i = animationAmbushOrbObjects.Count - 1; i >= 0; i--)
+        rt = default;
+        var map = GameManager.Instance?.GetResourceMap();
+        if (map == null) return false;
+        if (!map.TryGetValue(h, out var ft)) return false;
+
+        // Castle/Moat nicht als Resource behandeln
+        if (ft == FieldType.Castle || ft == FieldType.Moat) return false;
+
+        // FieldType-Name → ResourceType (Wood/Wheat/Ore[/Desert])
+        return System.Enum.TryParse(ft.ToString(), out rt);
+    }
+
+    private bool TryInferResourceTypeFromPathVertices(List<HexVertex> verts, out ResourceType rt)
+    {
+        rt = default;
+        var map = GameManager.Instance?.GetResourceMap();
+        if (map == null || verts == null || verts.Count < 2) return false;
+        else Debug.Log($"{map}{verts}{verts.Count}Baum!");
+
+        var v0 = verts[0];
+        var v1 = verts[1];
+
+        // 1) über erste Kante versuchen (meist eindeutig)
+        if (v0.TryGetEdgeTo(v1, out var e))
         {
-            if (animationAmbushOrbObjects[i] != null)
-            {
-                float distance = Vector3.Distance(workerPosition, animationAmbushOrbObjects[i].transform.position);
-                if (distance < 0.1f)
-                {
-                    Debug.Log($"❌ AMBUSH COLLISION DETECTED! Worker caught in ambush! ({GameManager.Instance?.MyRole})");
-                    Destroy(animationAmbushOrbObjects[i]);
-                    animationAmbushOrbObjects.RemoveAt(i);
-
-                    // Legacy worker system - destroy the worker completely
-                    if (isMoving && workerObj != null)
-                    {
-                        isMoving = false;
-                        Destroy(workerObj);
-                        workerObj = null;
-                        Debug.Log("🪦 Legacy worker destroyed by ambush!");
-                        return;
-                    }
-
-                    // Multi-worker system collision handling is done in MoveWorker method
-                    return;
-                }
-            }
+            var a = e.Hex;
+            var b = e.GetNeighbor();
+            if (TryGetResourceTypeFromHex(a, out rt)) return true;
+            if (TryGetResourceTypeFromHex(b, out rt)) return true;
         }
+
+        // 2) Fallback: irgendein angrenzendes Hex von v0 mit ResourceType
+        foreach (var h in v0.GetAdjacentHexes())
+            if (TryGetResourceTypeFromHex(h, out rt)) return true;
+
+        return false;
+    }
+
+    private GameObject PickWorkerModel(ResourceType rt)
+    {
+        switch (rt)
+        {
+            case ResourceType.Wood: return workerModelWood != null ? workerModelWood : workerModelFallback;
+            case ResourceType.Wheat: return workerModelWheat != null ? workerModelWheat : workerModelFallback;
+            case ResourceType.Ore: return workerModelOre != null ? workerModelOre : workerModelFallback;
+            default: return workerModelFallback != null ? workerModelFallback : workerModelWood;
+        }
+    }
+
+    private void SetWorkerModel(GameObject workerContainer, ResourceType rt)
+    {
+        if (workerContainer == null) return;
+
+        // Alle bisherigen Kinder (Platzhalter-Mesh) entfernen
+        for (int i = workerContainer.transform.childCount - 1; i >= 0; i--)
+            Destroy(workerContainer.transform.GetChild(i).gameObject);
+
+        var modelPrefab = PickWorkerModel(rt);
+        if (modelPrefab == null) return;
+
+        var model = Instantiate(modelPrefab, workerContainer.transform);
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.identity;
+        model.transform.localScale = Vector3.one;
     }
 
     // Prüft, ob das Bewegungssegment [from -> to] eine Ambush-Kugel schneidet.
@@ -1835,7 +1928,7 @@ public class InteractionManager : Singleton<InteractionManager>
             .Distinct();
 
     // === AMBUSH HANDLING ===
-    
+
     /* OLD VERTEX-BASED AMBUSH SYSTEM - COMMENTED OUT AS BACKUP
     void HandleAmbushClick(HexVertex v)
     {
@@ -1951,109 +2044,109 @@ public class InteractionManager : Singleton<InteractionManager>
     END OF OLD VERTEX-BASED SYSTEM */
 
     // NEW EDGE-BASED AMBUSH SYSTEM WITH HOVER PREVIEW
-    
+
     // check if a vertex is in the forbidden zone Hex(0,0)
     private bool IsVertexInForbiddenAmbushZone(HexVertex vertex)
     {
         var adjacentHexes = vertex.GetAdjacentHexes();
-        
+
         foreach (var hex in adjacentHexes)
         {
             if (hex.Q == 0 && hex.R == 0) return true;
         }
-        
+
         return false;
     }
-    
+
     private bool IsEdgeForbiddenForAmbush(HexVertex vertexA, HexVertex vertexB)
     {
         return IsVertexInForbiddenAmbushZone(vertexA) || IsVertexInForbiddenAmbushZone(vertexB);
     }
-    
+
     private GameObject currentPreviewOrb; // The transparent preview orb
     private List<GameObject> ambushEdgeColliders = new(); // Invisible edge colliders for hover detection
-    
+
     public void OnAmbushEdgeHoverEnter(HexVertex vertexA, HexVertex vertexB)
     {
         // Only show preview if bandit is in ambush placement mode and has ambushes left to place
         if (currentMode != InteractionMode.AmbushPlacement) return;
         if (!isInAmbushPlacementMode) return;
         if (placedAmbushes.Count >= purchasedAmbushes) return; // No more ambushes to place
-        
+
         // Check forbidden zone
         if (IsEdgeForbiddenForAmbush(vertexA, vertexB)) return;
-        
+
         // Check if an ambush already exists at this location
         var existingIndex = placedAmbushes.FindIndex(a =>
             (a.cornerA.Equals(vertexA) && a.cornerB.Equals(vertexB)) ||
             (a.cornerA.Equals(vertexB) && a.cornerB.Equals(vertexA)));
-            
+
         if (existingIndex >= 0) return; // Don't show preview if ambush already exists
-        
+
         ShowAmbushPreview(vertexA, vertexB);
     }
-    
+
     public void OnAmbushEdgeHoverExit(HexVertex vertexA, HexVertex vertexB)
     {
         HideAmbushPreview();
     }
-    
+
     public void OnAmbushEdgeLeftClick(HexVertex vertexA, HexVertex vertexB)
     {
         // Only place ambush if in placement mode and have ambushes left to place
         if (currentMode != InteractionMode.AmbushPlacement) return;
         if (!isInAmbushPlacementMode) return;
         if (placedAmbushes.Count >= purchasedAmbushes) return; // No more ambushes to place
-        
+
         // Check forbidden zone
         if (IsEdgeForbiddenForAmbush(vertexA, vertexB))
         {
             Debug.LogError("❌ Cannot place ambush: Edge is too close to the center!");
             return;
         }
-        
+
         PlaceAmbushOnEdge(vertexA, vertexB);
     }
-    
+
     public void OnAmbushEdgeRightClick(HexVertex vertexA, HexVertex vertexB)
     {
         // Only delete if NOT in placement mode (same logic as before)
         if (currentMode != InteractionMode.AmbushPlacement) return;
         if (isInAmbushPlacementMode) return;
-        
+
         // Find existing ambush at this location
         var existingIndex = placedAmbushes.FindIndex(a =>
             (a.cornerA.Equals(vertexA) && a.cornerB.Equals(vertexB)) ||
             (a.cornerA.Equals(vertexB) && a.cornerB.Equals(vertexA)));
-            
+
         if (existingIndex >= 0)
         {
             DeleteAmbush(existingIndex);
         }
     }
-    
+
     private void ShowAmbushPreview(HexVertex vertexA, HexVertex vertexB)
     {
         HideAmbushPreview(); // Remove any existing preview
-        
+
         if (ambushOrb == null) return;
-        
+
         var aPos = vertexA.ToWorld(gridGen.hexRadius);
         var bPos = vertexB.ToWorld(gridGen.hexRadius);
         var midPoint = (aPos + bPos) * 0.5f;
         midPoint.y = 0;
-        
+
         Vector3 dir = bPos - aPos;
         dir.y = 0f;
-        
+
         Quaternion rot;
         if (dir.sqrMagnitude <= 1e-6f)
             rot = Quaternion.identity;
         else
             rot = Quaternion.LookRotation(dir);
-            
+
         currentPreviewOrb = Instantiate(ambushOrb, midPoint, rot);
-        
+
         // Make it transparent/ghostly
         var renderers = currentPreviewOrb.GetComponentsInChildren<Renderer>();
         foreach (var renderer in renderers)
@@ -2067,7 +2160,7 @@ public class InteractionManager : Singleton<InteractionManager>
                     color.a = 0.5f; // 50% transparency
                     material.color = color;
                 }
-                
+
                 // Enable transparency if not already
                 if (material.HasProperty("_Mode"))
                 {
@@ -2082,10 +2175,10 @@ public class InteractionManager : Singleton<InteractionManager>
                 }
             }
         }
-        
+
         Debug.Log($"✅ Showing ambush preview between vertices ({vertexA.Hex.Q},{vertexA.Hex.R}) and ({vertexB.Hex.Q},{vertexB.Hex.R})");
     }
-    
+
     private void HideAmbushPreview()
     {
         if (currentPreviewOrb != null)
@@ -2094,75 +2187,75 @@ public class InteractionManager : Singleton<InteractionManager>
             currentPreviewOrb = null;
         }
     }
-    
+
     private void PlaceAmbushOnEdge(HexVertex vertexA, HexVertex vertexB)
     {
         // Check if an ambush already exists at this location
         var existingIndex = placedAmbushes.FindIndex(a =>
             (a.cornerA.Equals(vertexA) && a.cornerB.Equals(vertexB)) ||
             (a.cornerA.Equals(vertexB) && a.cornerB.Equals(vertexA)));
-            
+
         if (existingIndex >= 0)
         {
             Debug.LogError($"❌ Error: An ambush already exists between these vertices!");
             return;
         }
-        
+
         if (placedAmbushes.Count >= maxAmbushes)
         {
             Debug.LogError($"❌ Error: Maximum ambushes ({maxAmbushes}) already placed!");
             return;
         }
-        
+
         if (ambushOrb == null)
         {
             Debug.LogError("❌ Error: ambushOrb prefab is null!");
             return;
         }
-        
+
         // Hide preview since we're placing the real ambush
         HideAmbushPreview();
-        
+
         var ambushEdge = new NetworkingDTOs.AmbushEdge { cornerA = vertexA, cornerB = vertexB };
         placedAmbushes.Add(ambushEdge);
-        
+
         var aPos = vertexA.ToWorld(gridGen.hexRadius);
         var bPos = vertexB.ToWorld(gridGen.hexRadius);
         var midPoint = (aPos + bPos) * 0.5f;
         midPoint.y = 0;
-        
+
         Vector3 dir = bPos - aPos;
         dir.y = 0f;
-        
+
         Quaternion rot;
         if (dir.sqrMagnitude <= 1e-6f)
             rot = Quaternion.identity;
         else
             rot = Quaternion.LookRotation(dir);
-            
+
         var orbGO = Instantiate(ambushOrb, midPoint, rot);
-        
+
         // Add AmbushOrbMarker component for right-click detection (for individual orb deletion)
         if (orbGO.GetComponent<AmbushOrbMarker>() == null)
         {
             orbGO.AddComponent<AmbushOrbMarker>();
         }
-        
+
         // Ensure the orb has a collider for mouse interaction
         if (orbGO.GetComponent<Collider>() == null)
         {
             var collider = orbGO.AddComponent<SphereCollider>();
             collider.radius = 0.5f;
         }
-        
+
         ambushOrbObjects.Add(orbGO);
-        
+
         // Don't highlight vertices - they should stay red (original color)
         // EnsureVertexHighlighted(vertexA);
         // EnsureVertexHighlighted(vertexB);
-        
+
         Debug.Log($"✅ Ambush placed between vertices ({vertexA.Hex.Q},{vertexA.Hex.R}) and ({vertexB.Hex.Q},{vertexB.Hex.R})");
-        
+
         // Only disable placement mode if we've placed all purchased ambushes
         if (placedAmbushes.Count >= purchasedAmbushes)
         {
@@ -2393,7 +2486,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         // Clear any path highlights
         ResetVertexHighlights();
-        
+
         Debug.Log("✅ State reset to allow new path creation");
     }
 
