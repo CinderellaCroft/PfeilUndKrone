@@ -182,7 +182,8 @@ public class InteractionManager : Singleton<InteractionManager>
 
                 processedPairs.Add(pair1);
 
-                // Create invisible collider between these vertices
+                if (IsEdgeForbiddenForAmbush(vertex, neighbor))
+                    continue;
                 CreateEdgeCollider(vertex, neighbor);
             }
         }
@@ -1419,7 +1420,11 @@ public class InteractionManager : Singleton<InteractionManager>
                 pathComplete = false;
                 pathCreationState = PathCreationState.Creating;
                 var last = selectedVertices.Last();
-                validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(last).Except(selectedVertices));
+                var undoCandidates = GetNeighborVertices(last).Except(selectedVertices);
+                if (selectedVertices.Count < 2)
+                    undoCandidates = undoCandidates.Except(centralVertices);
+                validNextVertices = new HashSet<HexVertex>(undoCandidates);
+                UpdateEndVertexHighlighting();
             }
 
             // Update UI (not ready anymore)
@@ -1430,7 +1435,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
         if (!validNextVertices.Contains(v))
         {
-            validNextVertices = new HashSet<HexVertex>(GetNeighborVertices(selectedVertices.Last()));
+            Debug.LogError($"Error: This move is not allowed! ({v.Hex.Q},{v.Hex.R})");
             return;
         }
 
@@ -1455,7 +1460,7 @@ public class InteractionManager : Singleton<InteractionManager>
             UIManager.Instance.UpdateInfoText("Path must be longer than 1 edge.");
         }
         var candidates = GetNeighborVertices(v).Except(selectedVertices);
-        if (selectedVertices.Count < 3)
+        if (selectedVertices.Count < 2)
             candidates = candidates.Except(centralVertices);
         validNextVertices = new HashSet<HexVertex>(candidates);
         UpdateEndVertexHighlighting();
@@ -1467,7 +1472,7 @@ public class InteractionManager : Singleton<InteractionManager>
     /// </summary>
     private void UpdateEndVertexHighlighting()
     {
-        bool showEnds = pathCreationState == PathCreationState.Creating && selectedVertices.Count >= 3;
+        bool showEnds = pathCreationState == PathCreationState.Creating && selectedVertices.Count >= 2;
         foreach (var cv in centralVertices)
         {
             bool isHighlighted = highlightedVertices.Contains(cv);
@@ -1947,6 +1952,24 @@ public class InteractionManager : Singleton<InteractionManager>
 
     // NEW EDGE-BASED AMBUSH SYSTEM WITH HOVER PREVIEW
     
+    // check if a vertex is in the forbidden zone Hex(0,0)
+    private bool IsVertexInForbiddenAmbushZone(HexVertex vertex)
+    {
+        var adjacentHexes = vertex.GetAdjacentHexes();
+        
+        foreach (var hex in adjacentHexes)
+        {
+            if (hex.Q == 0 && hex.R == 0) return true;
+        }
+        
+        return false;
+    }
+    
+    private bool IsEdgeForbiddenForAmbush(HexVertex vertexA, HexVertex vertexB)
+    {
+        return IsVertexInForbiddenAmbushZone(vertexA) || IsVertexInForbiddenAmbushZone(vertexB);
+    }
+    
     private GameObject currentPreviewOrb; // The transparent preview orb
     private List<GameObject> ambushEdgeColliders = new(); // Invisible edge colliders for hover detection
     
@@ -1956,6 +1979,9 @@ public class InteractionManager : Singleton<InteractionManager>
         if (currentMode != InteractionMode.AmbushPlacement) return;
         if (!isInAmbushPlacementMode) return;
         if (placedAmbushes.Count >= purchasedAmbushes) return; // No more ambushes to place
+        
+        // Check forbidden zone
+        if (IsEdgeForbiddenForAmbush(vertexA, vertexB)) return;
         
         // Check if an ambush already exists at this location
         var existingIndex = placedAmbushes.FindIndex(a =>
@@ -1978,6 +2004,13 @@ public class InteractionManager : Singleton<InteractionManager>
         if (currentMode != InteractionMode.AmbushPlacement) return;
         if (!isInAmbushPlacementMode) return;
         if (placedAmbushes.Count >= purchasedAmbushes) return; // No more ambushes to place
+        
+        // Check forbidden zone
+        if (IsEdgeForbiddenForAmbush(vertexA, vertexB))
+        {
+            Debug.LogError("❌ Cannot place ambush: Edge is too close to the center!");
+            return;
+        }
         
         PlaceAmbushOnEdge(vertexA, vertexB);
     }
