@@ -975,6 +975,7 @@ GameObject:
   - component: {fileID: 308010153}
   - component: {fileID: 308010154}
   - component: {fileID: 308010155}
+  - component: {fileID: 308010156}
   m_Layer: 5
   m_Name: ToggleSound
   m_TagString: Untagged
@@ -1071,6 +1072,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 308010152}
   m_CullTransparentMesh: 1
+--- !u!114 &308010156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 308010152}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: adcf1d33061dad244abbc39e5ab13ff1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  label: {fileID: 0}
+  playIcon: {fileID: 0}
+  pauseIcon: {fileID: 0}
+  disableChildRaycasts: 1
 --- !u!1 &310973457
 GameObject:
   m_ObjectHideFlags: 0
@@ -5934,10 +5951,10 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 24300002, guid: f9f98aaf354de4344a598eb48cb85e4c, type: 2}
-  m_audioClip: {fileID: 8300000, guid: 01fc8c5f02e00924bad74ffe45be6b8e, type: 3}
-  m_Resource: {fileID: 8300000, guid: 01fc8c5f02e00924bad74ffe45be6b8e, type: 3}
+  m_audioClip: {fileID: 8300000, guid: 62288367b8ee77049bcf367e37d18fd4, type: 3}
+  m_Resource: {fileID: 8300000, guid: 62288367b8ee77049bcf367e37d18fd4, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 1
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 1
   Mute: 0
