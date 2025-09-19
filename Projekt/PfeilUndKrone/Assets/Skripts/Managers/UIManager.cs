@@ -33,20 +33,17 @@ public class UIManager : Singleton<UIManager>
 
     private int previousGold, previousWood, previousGrain;
 
+    // Initialize singleton and set up default resource tracking values
     protected override void Awake()
     {
         base.Awake();
         ValidateReferences();
 
-
-        // Initialize previous resource values
         previousGold = 0;
         previousWood = 0;
         previousGrain = 0;
     }
-
-    //MainBindings.cs MonoBehaviour mit containing fresh references
-    //called within MainBindings.cs
+    // Bind UI element references from MainBindings for multi-scene support
     public void Bind(MainBindings b)
     {
         Debug.Log("[UIManager] Binding references from MainBindings");
@@ -70,13 +67,9 @@ public class UIManager : Singleton<UIManager>
 
         Debug.Log("[UIManager] All references bound from MainBindings");
 
-        // Revalidate after binding
         ValidateReferences();
-
-        // Re-setup button listeners since references have changed
         SetupButtonListeners();
 
-        // Update role text with current role from GameManager
         if (GameManager.Instance != null)
         {
             UpdateRoleText(GameManager.Instance.MyRole);
@@ -85,6 +78,7 @@ public class UIManager : Singleton<UIManager>
 
 
 
+    // Fallback method to find UI elements by tag if binding fails
     void CacheRefs()
     {
         roleText = GameObject.FindWithTag("RoleText")?.GetComponent<TextMeshProUGUI>();
@@ -99,9 +93,9 @@ public class UIManager : Singleton<UIManager>
 
     }
 
+    // Validate that all critical UI references are properly assigned
     private void ValidateReferences()
     {
-        // Check critical UI elements
         bool hasCriticalError = false;
         if (roleText == null) { Debug.LogError("UIManager: roleText is null"); hasCriticalError = true; }
         if (turnStatusText == null) { Debug.LogError("UIManager: turnStatusText is null"); hasCriticalError = true; }
@@ -125,6 +119,7 @@ public class UIManager : Singleton<UIManager>
 
     }
 
+    // Initialize UI state and set up button listeners
     void Start()
     {
         SetupButtonListeners();
@@ -132,7 +127,6 @@ public class UIManager : Singleton<UIManager>
         SetKingButtonsActive(false);
         SetBanditButtonsActive(false);
 
-        // Update role text with current role from GameManager
         if (GameManager.Instance != null)
         {
             UpdateRoleText(GameManager.Instance.MyRole);
@@ -141,11 +135,11 @@ public class UIManager : Singleton<UIManager>
 
     private bool listenersSetup = false;
 
+    // Configure click event listeners for all interactive UI buttons
     private void SetupButtonListeners()
     {
         Debug.Log("[UIManager] Setting up button listeners");
 
-        // Clear any existing listeners first to avoid duplicates
         if (doneButton != null)
         {
             doneButton.onClick.RemoveAllListeners();
@@ -193,12 +187,12 @@ public class UIManager : Singleton<UIManager>
         Debug.Log("[UIManager] Button listeners setup complete");
     }
 
+    // Update the role display text and refresh worker count display
     public void UpdateRoleText(PlayerRole role)
     {
         if (roleText != null)
         {
             roleText.text = $"{role}";
-            // Update worker text when role changes
             UpdateWorkerText();
         }
         else
@@ -207,6 +201,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the turn status display with current game phase information
     public void UpdateTurnStatus(string status)
     {
         if (turnStatusText != null)
@@ -219,6 +214,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the round number display for current game round
     public void UpdateRoundNumber(int roundNumber)
     {
         if (roundNumberText != null)
@@ -231,6 +227,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the information text area with game feedback or instructions
     public void UpdateInfoText(string info)
     {
         if (infoText != null)
@@ -243,6 +240,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update resource display and show floating text animations for changes
     public void UpdateResourcesText(int gold, int wood, int grain)
     {
         if (resourcesText != null)
@@ -286,6 +284,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Display animated floating text for resource value changes
     private void ShowFloatingText(int change, Transform container)
     {
         if (floatingTextPrefab == null) return;
@@ -299,6 +298,7 @@ public class UIManager : Singleton<UIManager>
         floatingText.SetText(text, isPositive);
     }
 
+    // Update the worker count display for King players showing available workers
     public void UpdateWorkerText()
     {
         if (workerText == null) return;
@@ -335,6 +335,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Control visibility and interactability of the Done button based on game state
     public void SetDoneButtonActive(bool isActive)
     {
         if (doneButton != null && doneButton.gameObject != null)
@@ -357,6 +358,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Refresh the Done button state based on current turn requirements
     public void UpdateDoneButtonState()
     {
         if (GameManager.Instance?.CurrentTurn == GameTurn.KingPlanning)
@@ -365,6 +367,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Control visibility and state of all King-specific action buttons
     public void SetKingButtonsActive(bool isActive)
     {
         if (kingPathButton != null && kingPathButton.gameObject != null)
@@ -405,6 +408,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Control visibility and state of all Bandit-specific action buttons
     public void SetBanditButtonsActive(bool isActive)
     {
         if (banditAmbushButton != null && banditAmbushButton.gameObject != null)
@@ -417,6 +421,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the King path creation button text and interactability state
     public void UpdateKingPathButtonText()
     {
         if (kingPathButton != null && InteractionManager.Instance != null)
@@ -431,6 +436,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the King path confirmation button text and enable state
     public void UpdateKingPathConfirmButtonText()
     {
         if (kingPathConfirmButton != null && InteractionManager.Instance != null)
@@ -445,6 +451,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the King worker purchase button text and availability
     public void UpdateKingWorkerBuyButtonText()
     {
         /*
@@ -460,6 +467,7 @@ public class UIManager : Singleton<UIManager>
         */
     }
 
+    // Update the King wagon upgrade button text and interactability
     public void UpdateKingWagonUpgradeButtonText()
     {
         if (kingWagonUpgradeButton != null && InteractionManager.Instance != null)
@@ -474,6 +482,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the King wagon path creation button text and availability
     public void UpdateKingWagonPathButtonText()
     {
         if (kingWagonPathButton != null && InteractionManager.Instance != null)
@@ -488,6 +497,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
+    // Update the Bandit ambush purchase button text and interactability
     public void UpdateBanditAmbushButtonText()
     {
         /*
@@ -507,6 +517,7 @@ public class UIManager : Singleton<UIManager>
 
     // === BUTTON CLICK HANDLERS ===
 
+    // Handle King worker purchase button click and update related UI elements
     private void OnKingWorkerBuyButtonClicked()
     {
         Debug.Log("King Worker Buy button clicked!");
@@ -527,6 +538,7 @@ public class UIManager : Singleton<UIManager>
         UpdateWorkerText();
     }
 
+    // Handle King wagon upgrade button click and refresh dependent buttons
     private void OnKingWagonUpgradeButtonClicked()
     {
         Debug.Log("King Wagon Upgrade button clicked!");
@@ -547,6 +559,7 @@ public class UIManager : Singleton<UIManager>
         UpdateWorkerText();
     }
 
+    // Handle King wagon path creation button click and update UI state
     private void OnKingWagonPathButtonClicked()
     {
         Debug.Log("King Wagon Path button clicked!");
@@ -567,6 +580,7 @@ public class UIManager : Singleton<UIManager>
         UpdateKingPathConfirmButtonText();
     }
 
+    // Handle King worker path creation button click and initiate path planning
     private void OnKingPathButtonClicked()
     {
         Debug.Log("King Path button clicked!");
@@ -585,6 +599,7 @@ public class UIManager : Singleton<UIManager>
         UpdateWorkerText();
     }
 
+    // Handle King path confirmation button click and finalize current path
     private void OnKingPathConfirmButtonClicked()
     {
         Debug.Log("King Path Confirm button clicked!");
@@ -603,6 +618,7 @@ public class UIManager : Singleton<UIManager>
         UpdateWorkerText();
     }
 
+    // Handle quit game button click and initiate game termination process
     private void OnQuitGameButtonClicked()
     {
 
@@ -610,6 +626,7 @@ public class UIManager : Singleton<UIManager>
         InteractionManager.Instance.QuitGameRequest();
     }
 
+    // Handle Bandit ambush purchase button click and update button state
     private void OnBanditAmbushButtonClicked()
     {
         Debug.Log("Bandit Ambush button clicked!");
@@ -629,6 +646,7 @@ public class UIManager : Singleton<UIManager>
         UpdateBanditAmbushButtonText();
     }
 
+    // Handle Done button click and submit turn actions based on current player role
     private void OnDoneButtonClicked()
     {
         Debug.Log($"Done button clicked! Current turn: {GameManager.Instance.CurrentTurn}");
@@ -672,6 +690,7 @@ public class UIManager : Singleton<UIManager>
 
     // === TURN-BASED BUTTON VISIBILITY ===
 
+    // Update button visibility and auto-start actions based on current turn and player role
     public void UpdateButtonVisibilityForTurn(GameTurn currentTurn, PlayerRole myRole)
     {
         switch (currentTurn)
@@ -725,6 +744,7 @@ public class UIManager : Singleton<UIManager>
         UpdateWorkerText();
     }
 
+    // Display end game screen and perform cleanup before transitioning to result scene
     public void ShowEndGamePanel(bool didIWin)
     {
         Debug.Log($"[UIManager] ShowEndGamePanel called - didIWin: {didIWin}");
@@ -785,9 +805,7 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
-    /// <summary>
-    /// Complete reset for a new game session
-    /// </summary>
+    // Complete reset for a new game session with UI state cleanup
     public void ResetForNewGame()
     {
         Debug.Log("[UIManager] ResetForNewGame() - Resetting UI state");

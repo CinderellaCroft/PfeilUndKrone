@@ -50,6 +50,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
 
 
 
+    // Initialize singleton and build resource prefab mapping
     protected override void Awake()
     {
         base.Awake();
@@ -58,6 +59,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             .ToDictionary(e => e.type, e => e.prefab);
     }
 
+    // Bind prefab references from MainBindings for multi-scene support
     public void Bind(MainBindings b)
     {
         Debug.Log("[GridVisualsManager] Binding references from MainBindings");
@@ -91,6 +93,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         Debug.Log("[GridVisualsManager] Binding complete - all references should now be available");
     }
 
+    // Generate and place all visual elements for the hex grid based on resource map
     public void InitializeVisuals(Dictionary<Hex, FieldType> map)
     {
         ClearPrevious();
@@ -167,7 +170,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
             go.name = vertex.ToString();
             var vm = go.AddComponent<VertexMarker>(); vm.vertex = vertex; vm.interaction = interactionManager;
             hexVertexObjects[vertex] = go;
-            
+
             // Initially hide all vertices - they will be shown based on game state
             go.SetActive(false);
         }
@@ -191,11 +194,13 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         }
     }
 
+    // Get the GameObject associated with a specific vertex
     public GameObject GetVertexGameObject(HexVertex vertex)
     {
         return hexVertexObjects.TryGetValue(vertex, out var go) ? go : null;
     }
 
+    // Set visibility of a single vertex marker
     public void SetVertexVisible(HexVertex vertex, bool visible)
     {
         if (hexVertexObjects.TryGetValue(vertex, out var go))
@@ -204,6 +209,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         }
     }
 
+    // Set visibility for multiple vertex markers
     public void SetVerticesVisible(IEnumerable<HexVertex> vertices, bool visible)
     {
         foreach (var vertex in vertices)
@@ -212,6 +218,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         }
     }
 
+    // Hide all vertex markers in the grid
     public void HideAllVertices()
     {
         foreach (var go in hexVertexObjects.Values)
@@ -220,21 +227,24 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         }
     }
 
+    // Show vertex markers around a selected resource field for King players
     public void ShowVerticesForSelectedResourceField(Hex resourceHex)
     {
         if (GameManager.Instance.MyRole != PlayerRole.King) return;
-        
+
         // Show vertices around the selected resource field
         var hexRadius = gridGenerator.hexRadius;
         var vertices = GetVerticesAroundHex(resourceHex);
         SetVerticesVisible(vertices, true);
     }
 
+    // Show vertex markers for a specific path
     public void ShowVerticesForPath(IEnumerable<HexVertex> pathVertices)
     {
         SetVerticesVisible(pathVertices, true);
     }
 
+    // Get all vertices that surround a given hex
     private IEnumerable<HexVertex> GetVerticesAroundHex(Hex hex)
     {
         // Get all vertices that belong to this hex
@@ -247,6 +257,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         return vertices;
     }
 
+    // Destroy all existing visual elements and clear tracking dictionaries
     void ClearPrevious()
     {
         foreach (var go in hexObjects.Values) Destroy(go);
@@ -257,9 +268,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         hexEdgeObjects.Clear();
     }
 
-    /// <summary>
-    /// Complete reset for a new game session
-    /// </summary>
+    // Complete reset for a new game session
     public void ResetForNewGame()
     {
         Debug.Log("[GridVisualsManager] ResetForNewGame() - Clearing all visual elements");
@@ -271,8 +280,13 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         Debug.Log("[GridVisualsManager] ResetForNewGame() - Reset complete");
     }
 
+    // Check if field type is a castle
     private static bool IsCastleField(FieldType f) => f == FieldType.Castle;
+
+    // Check if field type is a moat
     private static bool IsMoatField(FieldType f) => f == FieldType.Moat;
+
+    // Try to convert FieldType to ResourceType, excluding castle and moat
     private static bool TryFieldAsResource(FieldType f, out ResourceType r)
     {
         if (f == FieldType.Castle || f == FieldType.Moat)
@@ -287,6 +301,7 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         return false;
     }
 
+    // Determine the appropriate prefab and rotation for a hex field based on type and player role
     private (GameObject prefab, Quaternion rotation) ResolveFieldVisual(
     Hex hex,
     FieldType ft,
@@ -336,34 +351,32 @@ public class GridVisualsManager : Singleton<GridVisualsManager>
         return (prefab, rotation);
     }
 
+    // Calculate proper rotation for moat pieces based on their position relative to castle
     private Quaternion GetMoatRotation(Hex hex, float hexRadius)
     {
-        // Weltposition des Hex (Burgzentrum ist 0,0 → pos = (0,0,0))
         Vector3 pos = hex.ToWorld(hexRadius);
 
-        // Falls irgendwas doch die Burg (0,0) wäre: neutral
         if (pos.sqrMagnitude <= 1e-6f)
             return Quaternion.identity;
 
-        // Winkel um Y ermitteln. Wichtig: Atan2(x, z) → Winkel relativ zur Z-Achse
         float angleDeg = Mathf.Atan2(pos.x, pos.z) * Mathf.Rad2Deg;
         if (angleDeg < 0f) angleDeg += 360f;
 
-        // In 60°-Sektoren runden (0..5)
         int sector = Mathf.FloorToInt((angleDeg + 30f) / 60f) % 6;
         if (sector < 0) sector += 6;
 
-        // Finale Y-Rotation inkl. optionalem Offset fürs Prefab
         float y = sector * 60f + moatRotationOffsetY;
         return Quaternion.Euler(0f, y, 0f);
     }
 
+    // Set visibility of a specific edge marker
     public void SetEdgeVisible(HexEdge edge, bool visible)
     {
         if (hexEdgeObjects.TryGetValue(edge, out var go)) go.SetActive(visible);
         else Debug.LogWarning($"[GVM] Edge GameObject not found for {edge}");
     }
 
+    // Hide all edge markers in the grid
     public void HideAllEdges()
     {
         foreach (var go in hexEdgeObjects.Values) go.SetActive(false);

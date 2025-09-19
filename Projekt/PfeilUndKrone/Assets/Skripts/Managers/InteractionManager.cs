@@ -20,23 +20,19 @@ public class InteractionManager : Singleton<InteractionManager>
     public GameObject ambushOrb;
     public float workerSpeed = 1f;
 
-    // Multiple workers for multiple paths
     private List<GameObject> workerObjects = new();
     private List<List<Vector3>> allServerPathsWorld = new();
     private List<int> workerPathSteps = new();
     private List<bool> workerMovingStates = new();
 
-    // Workers sitting on resource fields (visible when paths are created)
     private List<GameObject> resourceFieldWorkers = new();
 
-    // Stored path data for bandit visibility (resource fields only, no routes)
     private List<Hex> submittedResourceFields = new();
     private List<bool> submittedPathIsWagonWorker = new();
 
     public Material ambushLineMaterial;
     public int maxAmbushes = 5;
 
-    // Path colors for multiple paths
     public Color[] pathColors = { Color.blue, Color.green, Color.yellow, Color.cyan, Color.magenta };
 
     [Header("Ambush via Edges")]
@@ -53,27 +49,24 @@ public class InteractionManager : Singleton<InteractionManager>
     public GameObject workerModelOre;
     public GameObject workerModelFallback;
 
-    [Tooltip("Grad pro Sekunde für das Drehen zum nächsten Wegpunkt")]
+    [Tooltip("Degrees per second for rotating to the next waypoint")]
     public float workerRotateDegreesPerSec = 540f;
 
     private InteractionMode currentMode = InteractionMode.None;
 
-    // Multiple paths system for King
-    private List<List<HexVertex>> completedPaths = new(); // All completed paths
-    private List<Hex> completedPathResourceFields = new(); // Resource fields for each completed path
+    private List<List<HexVertex>> completedPaths = new();
+    private List<Hex> completedPathResourceFields = new();
     private List<bool> completedPathIsWagonWorker = new();
     private Dictionary<int, Color> pathColorMap = new();
     private bool currentPathUseWagonWorker = false;
     private PathCreationState pathCreationState = PathCreationState.NotCreating;
     private int currentPathIndex = -1;
 
-    // Current path being created
     private HashSet<HexVertex> selectedVertices = new();
     private HashSet<HexVertex> validNextVertices = new();
     private List<HexVertex> centralVertices;
     private bool pathComplete;
 
-    // Resource field selection for path starting
     private Hex selectedResourceField = default;
     private HashSet<HexVertex> availableStartVertices = new();
     private GameObject workerObj;
@@ -83,32 +76,28 @@ public class InteractionManager : Singleton<InteractionManager>
 
     private HexVertex ambushStart;
     private List<NetworkingDTOs.AmbushEdge> placedAmbushes = new();
-    private List<GameObject> ambushOrbObjects = new(); // Lokale Kugeln nur für Bandit während Platzierung
-    private List<GameObject> animationAmbushOrbObjects = new(); // Animation Kugeln für beide Spieler
+    private List<GameObject> ambushOrbObjects = new();
+    private List<GameObject> animationAmbushOrbObjects = new();
     private HashSet<HexEdge> ambushEdges = new();
 
-    // Bandit resources and ambush buying system
-    private int currentGold = 20; // Will be updated from server
+    private int currentGold = 20;
     private const int ambushCost = 12;
-    private int purchasedAmbushes = 0; // How many ambushes bandit has purchased
+    private int purchasedAmbushes = 0;
     private bool isInAmbushPlacementMode = false;
-    private int pendingDeletionIndex = -1; // For server-validated deletion
-    private int pendingPathDeletionIndex = -1; // For server-validated path deletion
+    private int pendingDeletionIndex = -1;
+    private int pendingPathDeletionIndex = -1;
 
-    // King resources and worker buying system
-    private int currentGrain = 0; // Will be updated from server
-    private int currentWood = 0; // Will be updated from server
+    private int currentGrain = 0;
+    private int currentWood = 0;
     private const int workerGrainCost = 20;
     private const int workerWoodCost = 8;
     private const int wagonWoodCost = 25;
     private int ownedWorkers = 0;
-    private bool pendingWorkerPurchase = false; // For server-validated worker purchase
-    private bool pendingWagonUpgrade = false; // For server-validated wagon upgrade
+    private bool pendingWorkerPurchase = false;
+    private bool pendingWagonUpgrade = false;
     private int usedWorkers = 0;
     private int ownedWagonWorkers = 0;
     private int usedWagonWorkers = 0;
-
-    // Vertex highlighting system
     private HashSet<HexVertex> highlightedVertices = new();
     private Color originalVertexColor = Color.red;
     private Color highlightColor = Color.magenta;
@@ -117,23 +106,20 @@ public class InteractionManager : Singleton<InteractionManager>
     private Dictionary<HexVertex, Material[]> gameStartVertexMaterials = new();
     private bool gameStartMaterialsSaved = false;
 
-    // Path highlighting system
     private List<HexVertex> serverPathVertices = new();
     private List<List<HexVertex>> allServerPathsVertices = new();
 
+    // Initialize singleton instance and set up core manager state
     protected override void Awake()
     {
         base.Awake();
-        //workerObj = Instantiate(workerPrefab); workerObj.SetActive(false);
-        //net.OnPathApproved += ExecuteServerPath;
-        //net.OnAmbushConfirmed += ConfirmAmbushPlacement;
     }
 
+    // Initialize network connection, central vertices, and create ambush edge colliders
     void Start()
     {
         Debug.Log($"[InteractionManager] Start() - net is assigned: {net != null}");
 
-        // If net is not assigned, try to get NetworkManager.Instance
         if (net == null)
         {
             Debug.Log("[InteractionManager] net is null, trying to get NetworkManager.Instance");
@@ -146,10 +132,10 @@ public class InteractionManager : Singleton<InteractionManager>
             .Select(d => new HexVertex(new Hex(0, 0), d))
             .ToList();
 
-        // Create ambush edge colliders after a small delay to ensure grid is initialized
         StartCoroutine(CreateAmbushEdgeCollidersDelayed());
     }
 
+    // Wait one frame before creating ambush edge colliders to ensure grid generation is complete
     private System.Collections.IEnumerator CreateAmbushEdgeCollidersDelayed()
     {
         // Wait a frame to ensure grid generation is complete
@@ -157,6 +143,7 @@ public class InteractionManager : Singleton<InteractionManager>
         CreateAmbushEdgeColliders();
     }
 
+    // Generate invisible collider objects for all valid ambush edges in the hex grid
     private void CreateAmbushEdgeColliders()
     {
         if (gridGen == null || gridGen.Model?.AllVertices == null)
@@ -200,6 +187,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Created {ambushEdgeColliders.Count} ambush edge colliders");
     }
 
+    // Create a capsule collider GameObject between two vertices for ambush detection
     private void CreateEdgeCollider(HexVertex vertexA, HexVertex vertexB)
     {
         var aPos = vertexA.ToWorld(gridGen.hexRadius);
@@ -236,6 +224,7 @@ public class InteractionManager : Singleton<InteractionManager>
         ambushEdgeColliders.Add(edgeGO);
     }
 
+    // Enable player interactions based on role and initialize vertex material system
     public void EnableInteraction(PlayerRole role)
     {
         SaveGameStartVertexMaterials();
@@ -251,12 +240,14 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Disable all player interactions and reset interaction state
     public void DisableInteraction()
     {
         currentMode = InteractionMode.None;
         ResetState();
     }
 
+    // Handle per-frame worker movement and ambush placement mode updates
     void Update()
     {
         // Move all active workers
@@ -278,12 +269,15 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Handle hex field clicks for resource field selection during path creation
     public void OnHexClicked(Hex h)
     {
         if (currentMode == InteractionMode.PathSelection) HandleResourceFieldClick(h);
     }
+    // Handle edge clicks (currently unused placeholder)
     public void OnEdgeClicked(HexEdge e) { /* ... */ }
 
+    // Handle vertex clicks for path creation during King planning phase
     public void OnVertexClicked(HexVertex v)
     {
         if (currentMode == InteractionMode.PathSelection) HandlePathClick(v);
@@ -292,6 +286,7 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // Right-click to delete a completed path (only when the player is not in the creating mode)
+    // Handle right-click on vertex to delete completed paths when not currently creating
     public void OnRightClickVertex(HexVertex v)
     {
         if (currentMode != InteractionMode.PathSelection) return;
@@ -307,6 +302,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Handle right-click on edge to delete completed paths containing that edge
     public void OnRightClickEdge(HexEdge e)
     {
         if (currentMode != InteractionMode.PathSelection) return;
@@ -327,6 +323,7 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // Right-click to delete an ambush orb (only when not in placement mode)
+    // Handle right-click on ambush orb to delete the corresponding ambush placement
     public void OnRightClickAmbushOrb(GameObject orbGameObject)
     {
         if (currentMode != InteractionMode.AmbushPlacement) return;
@@ -345,6 +342,7 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // === VERTEX MATERIAL HELPER ===
+    // Change the visual color of a vertex by creating material instances
     void SetVertexColor(HexVertex vertex, Color color)
     {
         var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
@@ -371,6 +369,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Restore a vertex to its original shared materials before color changes
     void RestoreVertexOriginalMaterials(HexVertex vertex)
     {
         var vertexGO = GridVisualsManager.Instance.GetVertexGameObject(vertex);
@@ -385,11 +384,13 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Clear the dictionary of stored original vertex materials
     void ClearStoredVertexMaterials()
     {
         originalVertexMaterials.Clear();
     }
 
+    // Save the original materials of all vertices at game start for later restoration
     void SaveGameStartVertexMaterials()
     {
         if (gameStartMaterialsSaved) return;
@@ -414,6 +415,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Reset all vertices to their original game start materials and appearance
     void ResetAllVertexesToGameStart()
     {
         if (!gameStartMaterialsSaved || gameStartVertexMaterials.Count == 0) return;
@@ -436,6 +438,7 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // === VERTEX HIGHLIGHTING SYSTEM ===
+    // Toggle the highlight state of a vertex between highlighted and original colors
     void ToggleVertexHighlight(HexVertex vertex)
     {
         if (highlightedVertices.Contains(vertex))
@@ -451,6 +454,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Remove highlights from all currently highlighted vertices and restore original materials
     void ResetAllVertexHighlights()
     {
         foreach (var vertex in highlightedVertices.ToList())
@@ -460,6 +464,7 @@ public class InteractionManager : Singleton<InteractionManager>
         highlightedVertices.Clear();
     }
 
+    // Reset vertex highlights but preserve highlighting for vertices connected to ambushes
     void ResetVertexHighlightsKeepAmbushVertices()
     {
         var ambushVertices = new HashSet<HexVertex>();
@@ -483,6 +488,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Vertex highlights reset, kept {ambushVertices.Count} ambush-connected vertices pink");
     }
 
+    // Ensure a vertex is highlighted, adding it to highlights if not already present
     void EnsureVertexHighlighted(HexVertex vertex)
     {
         if (highlightedVertices.Contains(vertex)) return;
@@ -494,6 +500,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
     // Old UpdateAmbushHoverEdge() method removed - now using Orb-based preview system with edge colliders
 
+    // Calculate the shortest distance from a point to a line segment in XZ plane
     static float DistancePointSegmentXZ(Vector3 p, Vector3 a, Vector3 b)
     {
         a.y = b.y = p.y = 0f;
@@ -504,6 +511,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return Vector3.Distance(p, closest);
     }
 
+    // Get mouse position supporting both new Input System and legacy input
     private static Vector2 GetPointerPosition()
     {
 #if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
@@ -513,6 +521,7 @@ public class InteractionManager : Singleton<InteractionManager>
 #endif
     }
 
+    // Check if left mouse button was pressed this frame with input system compatibility
     private static bool LeftClickDown()
     {
 #if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
@@ -522,9 +531,11 @@ public class InteractionManager : Singleton<InteractionManager>
 #endif
     }
 
+    // Check if a field type is a special field (castle or moat)
     private static bool IsSpecialField(FieldType f)
     => f == FieldType.Moat || f == FieldType.Castle;
 
+    // Check if both hexes connected by an edge are special fields (castle/moat)
     private bool EdgeBothEndsSpecial(HexEdge e)
     {
         var map = GameManager.Instance?.GetResourceMap();
@@ -537,6 +548,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return IsSpecialField(a) && IsSpecialField(b);
     }
 
+    // Update vertex highlighting when ambushes are removed, clearing orphaned highlights
     void UpdateVertexHighlightsForAmbushVertices(HexVertex vertex)
     {
         bool stillConnectedToAmbush = placedAmbushes.Any(ambush => ambush.cornerA.Equals(vertex) || ambush.cornerB.Equals(vertex));
@@ -548,12 +560,14 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Public method to reset all vertex highlights and restore original materials
     public void ResetVertexHighlights()
     {
         ResetAllVertexHighlights();
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    // Debug method to log all currently highlighted vertices (editor only)
     public void DebugHighlightedVertices()
     {
         Debug.Log($"Currently highlighted vertices: {highlightedVertices.Count}");
@@ -564,6 +578,7 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // === MULTIPLE PATHS SYSTEM FOR KING ===
+    // Initialize creation of a new worker path for King players
     public void StartNewPath()
     {
         if (currentMode != InteractionMode.PathSelection) return;
@@ -595,6 +610,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Started creating path #{currentPathIndex + 1} - First select a resource field (Available workers: {GetAvailableWorkerCount()})");
     }
 
+    // Initialize creation of a new wagon worker path for King players
     public void StartNewWagonWorkerPath()
     {
         if (currentMode != InteractionMode.PathSelection) return;
@@ -626,6 +642,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Started creating wagon worker path #{currentPathIndex + 1} - First select a resource field (Available wagon workers: {GetAvailableWagonWorkerCount()})");
     }
 
+    // Finalize the current path creation and add it to completed paths list
     public void ConfirmCurrentPath()
     {
         if (pathCreationState != PathCreationState.ReadyToConfirm)
@@ -694,6 +711,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Apply visual styling to a completed path with specified color and visible edges
     private void VisualizeCompletedPath(int pathIndex, Color pathColor)
     {
         var pathVertices = completedPaths[pathIndex];
@@ -714,6 +732,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Create a worker GameObject on the specified resource field for visual representation
     private void SpawnWorkerOnResourceField(Hex resourceField, int pathIndex)
     {
         if (workerPrefab == null)
@@ -741,6 +760,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Worker spawned on resource field ({resourceField.Q},{resourceField.R}) for path #{pathIndex + 1}");
     }
 
+    // Display worker positions to Bandit players without revealing the actual paths
     private void ShowWorkersForBandit()
     {
         // Only show workers if there are submitted resource fields and we're the bandit
@@ -788,6 +808,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Bandit can now see {submittedResourceFields.Count} workers on resource fields (without seeing routes)");
     }
 
+    // Hide path visualization from Bandit players while keeping worker positions visible
     private void HidePathRoutesFromBandit()
     {
         // Only hide routes if we're the bandit
@@ -813,6 +834,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log("Path routes hidden from bandit view");
     }
 
+    // Receive and store worker location data from server for Bandit player view
     public void SetWorkerLocationsForBandit(NetworkingDTOs.WorkerLocationData[] workerLocations)
     {
         if (GameManager.Instance?.MyRole != PlayerRole.Bandit)
@@ -834,6 +856,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Bandit received worker locations: {workerLocations.Length} workers");
     }
 
+    // Get appropriate button text based on current path creation state
     public string GetPathCreationButtonText()
     {
         switch (pathCreationState)
@@ -855,12 +878,14 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Check if a new path can be created based on available workers and current state
     public bool CanCreateNewPath()
     {
         bool hasAvailableWorkers = completedPaths.Count < ownedWorkers;
         return pathCreationState == PathCreationState.NotCreating && hasAvailableWorkers;
     }
 
+    // Check if a new path can be created for specific worker type (regular or wagon)
     public bool CanCreateNewPath(bool useWagonWorker)
     {
         if (pathCreationState != PathCreationState.NotCreating) return false;
@@ -878,29 +903,34 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Check if the current path is ready to be confirmed and finalized
     public bool CanConfirmPath()
     {
         return pathCreationState == PathCreationState.ReadyToConfirm && pathComplete;
     }
 
     // Hover on hex fields should only be shown while selecting a resource field for a new path
+    // Check if hex field hover effects should be enabled during resource field selection
     public bool IsHexHoverEnabled()
     {
         return currentMode == InteractionMode.PathSelection && pathCreationState == PathCreationState.SelectingResourceField;
     }
 
+    // Get the total number of paths that have been completed and confirmed
     public int GetCompletedPathCount()
     {
         return completedPaths.Count;
     }
 
     // === RESOURCE MANAGEMENT ===
+    // Update the current gold amount for resource management calculations
     public void UpdateGoldAmount(int newGoldAmount)
     {
         currentGold = newGoldAmount;
         Debug.Log($"💰 Gold updated: {currentGold}");
     }
 
+    // Update all three resource types (gold, wood, grain) for purchase calculations
     public void UpdateResources(int gold, int wood, int grain)
     {
         currentGold = gold;
@@ -910,11 +940,13 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // === WORKER BUYING SYSTEM FOR KING ===
+    // Check if King player can afford to purchase a new worker with current resources
     public bool CanBuyWorker()
     {
         return currentGrain >= workerGrainCost && currentWood >= workerWoodCost && currentMode == InteractionMode.PathSelection && !pendingWorkerPurchase;
     }
 
+    // Get appropriate button text for worker purchase based on resource availability
     public string GetWorkerBuyButtonText()
     {
         if (CanBuyWorker())
@@ -927,6 +959,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Send worker purchase request to server and handle network communication
     public void BuyWorker()
     {
         Debug.Log($"[InteractionManager] BuyWorker() called - net is null: {net == null}");
@@ -959,6 +992,7 @@ public class InteractionManager : Singleton<InteractionManager>
         // On approval, server will update our resources and we can place the worker
     }
 
+    // Handle server approval of worker purchase and update local worker count
     public void OnWorkerPurchaseApproved()
     {
         ownedWorkers++;
@@ -978,6 +1012,7 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateWorkerText();
     }
 
+    // Handle server denial of worker purchase and display error message
     public void OnWorkerPurchaseDenied(string reason)
     {
         pendingWorkerPurchase = false; // Clear pending flag
@@ -986,11 +1021,13 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // Wagon Worker Management
+    // Check if King player can upgrade a regular worker to wagon worker
     public bool CanUpgradeWorkerToWagon()
     {
         return currentWood >= wagonWoodCost && (ownedWorkers - ownedWagonWorkers) > 0 && !pendingWagonUpgrade;
     }
 
+    // Send quit game request to server and handle game termination
     public void QuitGameRequest()
     {
         if (net == null)
@@ -1016,6 +1053,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
     }
 
+    // Send wagon upgrade request to server and handle network communication
     public void UpgradeWorkerToWagon()
     {
         if (!CanUpgradeWorkerToWagon())
@@ -1037,6 +1075,7 @@ public class InteractionManager : Singleton<InteractionManager>
         // Server will respond with wagon_upgrade_approved or wagon_upgrade_denied
     }
 
+    // Handle server approval of wagon upgrade and update worker counts
     public void OnWagonUpgradeApproved(int wagonWorkers, int totalWorkers)
     {
         ownedWorkers = totalWorkers;
@@ -1047,6 +1086,7 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateWorkerText();
     }
 
+    // Handle server denial of wagon upgrade and display error message
     public void OnWagonUpgradeDenied(string reason)
     {
         pendingWagonUpgrade = false; // Clear pending flag
@@ -1054,21 +1094,25 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
+    // Get the total number of workers purchased by the player
     public int GetPurchasedWorkerCount()
     {
         return ownedWorkers;
     }
 
+    // Get the number of workers available for path creation
     public int GetAvailableWorkerCount()
     {
         return ownedWorkers - usedWorkers;
     }
 
+    // Get the number of workers currently in use for paths
     public int GetUsedWorkerCount()
     {
         return usedWorkers;
     }
 
+    // Handle worker loss due to ambush and update worker count
     public void OnWorkerLostToAmbush()
     {
         ownedWorkers--;
@@ -1077,6 +1121,7 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateWorkerText();
     }
 
+    // Sync worker count from server data and update UI
     public void SetWorkerCountFromServer(int serverWorkerCount)
     {
         ownedWorkers = serverWorkerCount;
@@ -1084,6 +1129,7 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateWorkerText();
     }
 
+    // Sync both regular and wagon worker counts from server data
     public void SetWorkerCountsFromServer(int serverWorkerCount, int serverWagonWorkerCount)
     {
         ownedWorkers = serverWorkerCount;
@@ -1094,6 +1140,7 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateKingWagonPathButtonText();
     }
 
+    // Restore worker counts for new game sessions and reset usage counters
     public void RestorePurchasedWorkers(int workerCount, int wagonWorkers = 0)
     {
         ownedWorkers = workerCount;
@@ -1104,31 +1151,37 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateWorkerText();
     }
 
+    // Get the number of wagon workers available for path creation
     public int GetAvailableWagonWorkerCount()
     {
         return ownedWagonWorkers - usedWagonWorkers;
     }
 
+    // Check if any paths have been completed and confirmed
     public bool HasCompletedPaths()
     {
         return completedPaths.Count > 0;
     }
 
+    // Get the total number of completed and confirmed paths
     public int GetCompletedPathsCount()
     {
         return completedPaths.Count;
     }
 
+    // Get the number of regular (non-wagon) workers available for use
     public int GetAvailableRegularWorkerCount()
     {
         return (ownedWorkers - ownedWagonWorkers) - (usedWorkers - usedWagonWorkers);
     }
 
+    // Get the total number of wagon workers owned by the player
     public int GetTotalOwnedWagonWorkers()
     {
         return ownedWagonWorkers;
     }
 
+    // Get the total number of regular workers owned by the player
     public int GetTotalOwnedRegularWorkers()
     {
         return ownedWorkers - ownedWagonWorkers;
@@ -1136,16 +1189,19 @@ public class InteractionManager : Singleton<InteractionManager>
 
     // === AMBUSH BUYING SYSTEM FOR BANDIT ===
 
+    // Get the highest resource value between wood and grain for Bandit purchases
     private int GetHighestBanditResource()
     {
         return Mathf.Max(currentWood, currentGrain);
     }
 
+    // Check if Bandit player can afford to purchase an ambush
     public bool CanBuyAmbush()
     {
         return GetHighestBanditResource() >= ambushCost && currentMode == InteractionMode.AmbushPlacement;
     }
 
+    // Get appropriate button text for ambush purchase based on resource availability
     public string GetAmbushBuyButtonText()
     {
         if (CanBuyAmbush())
@@ -1159,6 +1215,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Send ambush purchase request to server using highest available resource
     public void BuyAmbush()
     {
         Debug.Log($"[InteractionManager] BuyAmbush() called - net is null: {net == null}");
@@ -1195,6 +1252,7 @@ public class InteractionManager : Singleton<InteractionManager>
         // On approval, server will update our gold and we can place the ambush
     }
 
+    // Handle server approval of ambush purchase and enable placement mode
     public void OnAmbushPurchaseApproved()
     {
         purchasedAmbushes++;
@@ -1204,12 +1262,14 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateInfoText($"Ambush approved! Click an edge to place it.");
     }
 
+    // Handle server denial of ambush purchase and display error message
     public void OnAmbushPurchaseDenied(string reason)
     {
         Debug.LogError($"❌ Ambush purchase denied: {reason}");
         UIManager.Instance.UpdateInfoText($"Error: {reason}");
     }
 
+    // Handle server approval of ambush deletion and clean up visual elements
     public void OnAmbushDeletionApproved()
     {
         if (pendingDeletionIndex < 0 || pendingDeletionIndex >= placedAmbushes.Count)
@@ -1250,6 +1310,7 @@ public class InteractionManager : Singleton<InteractionManager>
         // UI will be updated when UpdateResources() is called by NetworkManager
     }
 
+    // Handle server approval of path deletion and refund worker usage
     public void OnPathDeletionApproved()
     {
         if (pendingPathDeletionIndex < 0 || pendingPathDeletionIndex >= completedPaths.Count)
@@ -1310,21 +1371,31 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateWorkerText();
         UIManager.Instance.UpdateDoneButtonState();
 
+        // Auto-start new path creation if workers are available and we're in King mode
+        if (GameManager.Instance?.MyRole == PlayerRole.King && CanCreateNewPath() && pathCreationState == PathCreationState.NotCreating)
+        {
+            StartNewPath();
+            UIManager.Instance.UpdateInfoText($"Path deleted! Select a resource field to create path #{completedPaths.Count + 1}.");
+        }
+
         // Note: Resource updates are handled by server via 'resource_update' message
         // UI will be updated when UpdateResources() is called by NetworkManager
     }
 
+    // Get the total number of ambushes purchased by the Bandit
     public int GetPurchasedAmbushCount()
     {
         return purchasedAmbushes;
     }
 
+    // Get the total number of ambushes placed on the grid
     public int GetPlacedAmbushCount()
     {
         return placedAmbushes.Count;
     }
 
     // === RESOURCE FIELD HANDLING ===
+    // Process resource field selection during path creation
     void HandleResourceFieldClick(Hex h)
     {
         Debug.Log($"🔍 HandleResourceFieldClick called with hex ({h.Q},{h.R}), current state: {pathCreationState}");
@@ -1371,6 +1442,7 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // === PATH HANDLING ===
+    // Process vertex clicks during path creation and handle path building logic
     void HandlePathClick(HexVertex v)
     {
         if (pathComplete || isMoving) return;
@@ -1535,10 +1607,7 @@ public class InteractionManager : Singleton<InteractionManager>
         UpdateEndVertexHighlighting();
     }
 
-    /// <summary>
-    /// Highlightet/unhighlightet die Castle-End-Vertices abhängig von der aktuellen Pfadlänge.
-    /// End-Vertices erst zeigen, wenn Pfad > 1 Kante (also >= 3 Vertices) hat.
-    /// </summary>
+    // Update highlighting of castle end vertices based on current path length
     private void UpdateEndVertexHighlighting()
     {
         bool showEnds = pathCreationState == PathCreationState.Creating && selectedVertices.Count >= 2;
@@ -1571,6 +1640,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Request deletion of a completed path and send refund request to server
     void DeleteCompletedPath(int index)
     {
         if (index < 0 || index >= completedPaths.Count) return;
@@ -1597,6 +1667,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"🗑️ Path deletion request sent (Refund: {workerGrainCost} grain + {totalWoodCost} wood)");
     }
 
+    // Request deletion of a placed ambush and send refund request to server
     void DeleteAmbush(int index)
     {
         if (index < 0 || index >= placedAmbushes.Count) return;
@@ -1620,6 +1691,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"🗑️ Ambush deletion request sent (Refund: {ambushCost} {resourceType})");
     }
 
+    // Submit all completed paths to server and transition to waiting state
     public bool SubmitPath()
     {
         if (currentMode != InteractionMode.PathSelection)
@@ -1678,6 +1750,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return true;
     }
 
+    // Execute a single worker path received from server during execution phase
     public void ExecuteServerPath(List<HexVertex> path)
     {
         // Hide resource field workers since execution is now starting
@@ -1713,6 +1786,7 @@ public class InteractionManager : Singleton<InteractionManager>
         pathStep = 0;
     }
 
+    // Move the legacy single worker along its path with collision detection
     void MoveWorkerLegacy()
     {
         if (pathStep >= serverPathWorld.Count)
@@ -1773,6 +1847,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Move a specific worker along its assigned path with collision detection
     void MoveWorker(int workerIndex)
     {
         if (workerIndex >= workerObjects.Count || workerIndex >= allServerPathsWorld.Count) return;
@@ -1841,6 +1916,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Execute multiple worker paths simultaneously during execution phase
     public void ExecuteServerPaths(List<List<HexVertex>> paths)
     {
         // Hide resource field workers since execution is now starting
@@ -1898,6 +1974,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Attempt to determine the resource type of a hex field
     private bool TryGetResourceTypeFromHex(Hex h, out ResourceType rt)
     {
         rt = default;
@@ -1912,6 +1989,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return System.Enum.TryParse(ft.ToString(), out rt);
     }
 
+    // Infer the resource type from the starting vertices of a worker path
     private bool TryInferResourceTypeFromPathVertices(List<HexVertex> verts, out ResourceType rt)
     {
         rt = default;
@@ -1938,6 +2016,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return false;
     }
 
+    // Select the appropriate worker model prefab based on resource type
     private GameObject PickWorkerModel(ResourceType rt)
     {
         switch (rt)
@@ -1949,6 +2028,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Replace worker's child mesh with the appropriate resource-specific model
     private void SetWorkerModel(GameObject workerContainer, ResourceType rt)
     {
         if (workerContainer == null) return;
@@ -1966,8 +2046,7 @@ public class InteractionManager : Singleton<InteractionManager>
         model.transform.localScale = Vector3.one;
     }
 
-    // Prüft, ob das Bewegungssegment [from -> to] eine Ambush-Kugel schneidet.
-    // Nutzt die bereits vorhandene DistancePointSegmentXZ(...).
+    // Check if worker movement segment intersects with any ambush orb for collision detection
     private bool CheckAmbushCollisionAlongSegment(Vector3 from, Vector3 to)
     {
         for (int i = animationAmbushOrbObjects.Count - 1; i >= 0; i--)
@@ -1989,6 +2068,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return false;
     }
 
+    // Get all neighboring vertices connected to the specified vertex through edges
     IEnumerable<HexVertex> GetNeighborVertices(HexVertex v)
         => v.GetAdjacentHexes()
             .SelectMany(hex => Enum.GetValues(typeof(HexDirection)).Cast<HexDirection>().Select(dir => new HexEdge(hex, dir)))
@@ -2116,6 +2196,7 @@ public class InteractionManager : Singleton<InteractionManager>
     // NEW EDGE-BASED AMBUSH SYSTEM WITH HOVER PREVIEW
 
     // check if a vertex is in the forbidden zone Hex(0,0)
+    // Check if a vertex is in the forbidden ambush zone around the center hex (0,0)
     private bool IsVertexInForbiddenAmbushZone(HexVertex vertex)
     {
         var adjacentHexes = vertex.GetAdjacentHexes();
@@ -2128,6 +2209,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return false;
     }
 
+    // Check if an edge between two vertices is forbidden for ambush placement
     private bool IsEdgeForbiddenForAmbush(HexVertex vertexA, HexVertex vertexB)
     {
         return IsVertexInForbiddenAmbushZone(vertexA) || IsVertexInForbiddenAmbushZone(vertexB);
@@ -2136,6 +2218,7 @@ public class InteractionManager : Singleton<InteractionManager>
     private GameObject currentPreviewOrb; // The transparent preview orb
     private List<GameObject> ambushEdgeColliders = new(); // Invisible edge colliders for hover detection
 
+    // Handle mouse hover enter on ambush edge collider and show preview orb
     public void OnAmbushEdgeHoverEnter(HexVertex vertexA, HexVertex vertexB)
     {
         // Only show preview if bandit is in ambush placement mode and has ambushes left to place
@@ -2156,11 +2239,13 @@ public class InteractionManager : Singleton<InteractionManager>
         ShowAmbushPreview(vertexA, vertexB);
     }
 
+    // Handle mouse hover exit on ambush edge collider and hide preview orb
     public void OnAmbushEdgeHoverExit(HexVertex vertexA, HexVertex vertexB)
     {
         HideAmbushPreview();
     }
 
+    // Handle left click on ambush edge collider to place an ambush
     public void OnAmbushEdgeLeftClick(HexVertex vertexA, HexVertex vertexB)
     {
         // Only place ambush if in placement mode and have ambushes left to place
@@ -2178,6 +2263,7 @@ public class InteractionManager : Singleton<InteractionManager>
         PlaceAmbushOnEdge(vertexA, vertexB);
     }
 
+    // Handle right click on ambush edge collider to delete existing ambush
     public void OnAmbushEdgeRightClick(HexVertex vertexA, HexVertex vertexB)
     {
         // Only delete if NOT in placement mode (same logic as before)
@@ -2195,6 +2281,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Display a transparent preview orb for potential ambush placement
     private void ShowAmbushPreview(HexVertex vertexA, HexVertex vertexB)
     {
         HideAmbushPreview(); // Remove any existing preview
@@ -2249,6 +2336,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"✅ Showing ambush preview between vertices ({vertexA.Hex.Q},{vertexA.Hex.R}) and ({vertexB.Hex.Q},{vertexB.Hex.R})");
     }
 
+    // Remove the current ambush preview orb from the scene
     private void HideAmbushPreview()
     {
         if (currentPreviewOrb != null)
@@ -2258,6 +2346,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Place a permanent ambush orb on the edge between two vertices
     private void PlaceAmbushOnEdge(HexVertex vertexA, HexVertex vertexB)
     {
         // Check if an ambush already exists at this location
@@ -2338,6 +2427,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Submit all placed ambushes to server and transition to waiting state
     public bool FinalizeAmbushes()
     {
         if (currentMode != InteractionMode.AmbushPlacement)
@@ -2380,6 +2470,7 @@ public class InteractionManager : Singleton<InteractionManager>
     // Old DrawAmbushLines() method removed - now using Orb-based preview system
 
     // === ANIMATION AND DISPLAY ===
+    // Create visual ambush orbs for animation phase visible to both players
     public void DisplayAnimationOrbs(List<NetworkingDTOs.AmbushEdge> banditAmbushes)
     {
         // Remove this condition - ambushes should be visible to BOTH players during animation
@@ -2428,6 +2519,7 @@ public class InteractionManager : Singleton<InteractionManager>
         }
     }
 
+    // Validate an ambush edge for animation display to prevent invalid orbs
     bool IsValidAmbushForAnimation(NetworkingDTOs.AmbushEdge ambush)
     {
         if (ambush.cornerA.Equals(default(HexVertex)) || ambush.cornerB.Equals(default(HexVertex)))
@@ -2461,6 +2553,7 @@ public class InteractionManager : Singleton<InteractionManager>
         return true;
     }
 
+    // Start synchronized animation for single worker path with ambush orbs
     public void StartSynchronizedAnimation(List<HexVertex> kingPath, List<NetworkingDTOs.AmbushEdge> banditAmbushes)
     {
         // Hide all vertices first, then show only path vertices
@@ -2471,6 +2564,7 @@ public class InteractionManager : Singleton<InteractionManager>
         StartCoroutine(DelayedWorkerExecution(kingPath, 2f));
     }
 
+    // Start synchronized animation for multiple worker paths with ambush orbs
     public void StartSynchronizedAnimationMultiplePaths(List<List<HexVertex>> kingPaths, List<NetworkingDTOs.AmbushEdge> banditAmbushes)
     {
         // Hide all vertices first, then show only path vertices
@@ -2484,18 +2578,21 @@ public class InteractionManager : Singleton<InteractionManager>
         StartCoroutine(DelayedWorkerExecutionMultiple(kingPaths, 2f));
     }
 
+    // Coroutine to delay single worker execution after ambush orbs are displayed
     System.Collections.IEnumerator DelayedWorkerExecution(List<HexVertex> path, float delay)
     {
         yield return new WaitForSeconds(delay);
         ExecuteServerPath(path);
     }
 
+    // Coroutine to delay multiple worker execution after ambush orbs are displayed
     System.Collections.IEnumerator DelayedWorkerExecutionMultiple(List<List<HexVertex>> paths, float delay)
     {
         yield return new WaitForSeconds(delay);
         ExecuteServerPaths(paths);
     }
 
+    // Legacy method for clearing animation orbs, delegates to CleanupAfterRoundAnimation
     public void ClearAnimationOrbs()
     {
         // This method is now replaced by CleanupAfterRoundAnimation()
@@ -2505,6 +2602,7 @@ public class InteractionManager : Singleton<InteractionManager>
     }
 
     // === STATE MANAGEMENT ===
+    // Reset interaction state while preserving worker and ambush data
     void ResetState()
     {
         // Hide any preview orb
@@ -2553,6 +2651,7 @@ public class InteractionManager : Singleton<InteractionManager>
         GridVisualsManager.Instance.HideAllEdges();
     }
 
+    // Reset current path creation state while keeping completed paths intact
     private void ResetToPathCreationState()
     {
         // Reset current path creation state but keep completed paths
@@ -2576,6 +2675,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log("✅ State reset to allow new path creation");
     }
 
+    // Perform complete reset of all interaction state and visual elements
     public void ForceCompleteReset()
     {
         selectedVertices.Clear();
@@ -2669,6 +2769,7 @@ public class InteractionManager : Singleton<InteractionManager>
 
 
     // Public method to clean up after animation ends (called after round execution)
+    // Clean up all animation elements after round execution completes
     public void CleanupAfterRoundAnimation()
     {
         Debug.Log($"CleanupAfterRoundAnimation called for {GameManager.Instance?.MyRole}");
@@ -2713,9 +2814,7 @@ public class InteractionManager : Singleton<InteractionManager>
         Debug.Log($"Round cleanup completed for {GameManager.Instance?.MyRole}");
     }
 
-    /// <summary>
-    /// Complete reset for a new game session
-    /// </summary>
+    // Complete reset for a new game session with full state cleanup
     public void ResetForNewGame()
     {
         Debug.Log("[InteractionManager] ResetForNewGame() - Resetting interaction state");

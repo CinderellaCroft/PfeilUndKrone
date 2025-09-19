@@ -23,6 +23,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
     private TaskCompletionSource<bool> connectionTcs;
 
+    // Check if the websocket connection is currently open and available
     public override bool IsConnected
     {
         get
@@ -32,6 +33,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     }
 
 
+    // Establish websocket connection to server with async task completion
     public override async Task Connect()
     {
         Debug.Log("NM Connect() called");
@@ -73,6 +75,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     }
 
 
+    // Close websocket connection to server and clean up resources
     public override async Task Disconnect()
     {
 
@@ -87,16 +90,19 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
 
 
+    // Initialize NetworkManager and log start of new game round
     void Start()
     {
         Debug.Log("NEW ROUND HERE WE GO!!! (Client NetworkManager.cs)");
     }
 
+    // Ensure websocket is disconnected when application closes
     private void OnApplicationQuit()
     {
         _ = Disconnect();
     }
 
+    // Process websocket message queue each frame for main thread synchronization
     void Update()
     {
         // The NativeWebSocket library requires this to be called each frame
@@ -109,9 +115,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 #endif
     }
 
-    /// <summary>
-    /// Safe way to update UI that won't crash during scene transitions
-    /// </summary>
+    // Safely update UI info text with null checking for scene transitions
     private void SafeUpdateInfoText(string message)
     {
         if (UIManager.Instance != null)
@@ -124,6 +128,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         }
     }
 
+    // Configure websocket event handlers for connection, messages, and errors
     public void SetupWebsocket()
     {
         this.socketSetup = true;
@@ -552,11 +557,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         };
     }
 
-    /// <summary>
-    /// Sends a structured message to the server.
-    /// </summary>
-    /// <param name="type">The "event name" for the server to route.</param>
-    /// <param name="payloadObject">The data object to send (e.g., PathData).</param>
+    // Send structured message to server with type and payload serialization
     public override async void Send(string type, object payloadObject)
     {
         if (websocket.State != WebSocketState.Open)
@@ -578,9 +579,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         await websocket.SendText(finalJson);
     }
 
-    /// <summary>
-    /// Called by UI to create a new private lobby.
-    /// </summary>
+    // Request creation of a new private lobby from the server
     public void CreatePrivateLobby()
     {
         if (IsConnected)
@@ -594,9 +593,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         }
     }
 
-    /// <summary>
-    /// Called by UI to join an existing lobby by its ID.
-    /// </summary>
+    // Request to join an existing lobby using the provided lobby ID
     public void JoinLobbyById(string lobbyId)
     {
         if (IsConnected)
@@ -612,6 +609,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     }
 
     // Coroutine to clean up animation after delay
+    // Coroutine to clean up animation elements after specified delay
     private System.Collections.IEnumerator DelayedAnimationCleanup(float delay)
     {
         yield return new WaitForSeconds(delay);
@@ -626,6 +624,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     }
 
     // Coroutine to wait for GameManager to be ready before processing grid data
+    // Coroutine to wait for GameManager initialization before processing grid data
     private System.Collections.IEnumerator DeferGridDataUntilGameManagerReady()
     {
         int attempts = 0;
@@ -648,6 +647,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     }
 
     // Coroutine to wait for GameManager to be ready before processing resource map
+    // Coroutine to wait for GameManager initialization before processing resource map
     private System.Collections.IEnumerator DeferResourceMapUntilGameManagerReady(List<ResourceData> resourceData)
     {
         int attempts = 0;

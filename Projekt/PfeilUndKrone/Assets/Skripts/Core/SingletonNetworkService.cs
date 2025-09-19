@@ -5,10 +5,7 @@ public abstract class SingletonNetworkService<TSelf> : NetworkServiceBase
 {
     public static TSelf Instance { get; private set; }
 
-    // Optional: Nur im Editor erlauben (z. B. für den Simulator)
     protected virtual bool EditorOnly => false;
-
-    // Optional: Persistenz über Szenen hinweg
     protected virtual bool Persistent => true;
 
     protected virtual void Awake()
@@ -16,7 +13,6 @@ public abstract class SingletonNetworkService<TSelf> : NetworkServiceBase
 #if !UNITY_EDITOR
         if (EditorOnly)
         {
-            // Im Build sofort entsorgen, falls Editor-only
             Destroy(gameObject);
             return;
         }

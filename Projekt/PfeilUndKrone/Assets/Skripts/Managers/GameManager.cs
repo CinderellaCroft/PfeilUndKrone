@@ -30,6 +30,7 @@ public class GameManager : Singleton<GameManager>
 
     public bool quitGameCalled = false;
 
+    // Initialize the GameManager singleton instance and log initialization status
     protected override void Awake()
     {
         Debug.Log("[GameManager] Awake() START");
@@ -47,6 +48,7 @@ public class GameManager : Singleton<GameManager>
         }
     }
 
+    // Subscribe to network events and initialize network connection when component is enabled
     void OnEnable()
     {
         Debug.Log("[GameManager] OnEnable() called");
@@ -102,6 +104,7 @@ public class GameManager : Singleton<GameManager>
         }
     }
 
+    // Log start completion and verify instance availability
     void Start()
     {
         Debug.Log("[GameManager] Start() called");
@@ -109,6 +112,7 @@ public class GameManager : Singleton<GameManager>
     }
 
 
+    // Unsubscribe from network events when component is disabled
     void OnDisable()
     {
         networkService.OnRoleAssigned -= SetRole;
@@ -116,6 +120,7 @@ public class GameManager : Singleton<GameManager>
         networkService.OnResourceMapReceived -= OnResourceMap;
     }
 
+    // Handle network connection when main game scene is loaded
     void OnSceneLoaded(Scene s, LoadSceneMode x)
     {
         if (s.name == "Main")
@@ -134,6 +139,7 @@ public class GameManager : Singleton<GameManager>
         }
     }
 
+    // Terminate the current game session and perform cleanup
     public void EndGame()
     {
         Debug.Log($"[GameManager] EndGame() CALLED - Current Role: {MyRole}");
@@ -149,9 +155,7 @@ public class GameManager : Singleton<GameManager>
         Debug.Log("[GameManager] EndGame() - Complete game state reset for next game");
     }
 
-    /// <summary>
-    /// Comprehensive reset of all game state for a fresh new game
-    /// </summary>
+    // Comprehensive reset of all game state for a fresh new game
     public void ResetGameState()
     {
         Debug.Log($"[GameManager] ResetGameState() CALLED - Current Role: {MyRole}");
@@ -174,9 +178,7 @@ public class GameManager : Singleton<GameManager>
         Debug.Log("[GameManager] ResetGameState() - All systems reset for new game");
     }
 
-    /// <summary>
-    /// Reset only game state without touching UI (for title scene cleanup)
-    /// </summary>
+    // Reset only game state without touching UI (for title scene cleanup)
     public void ResetGameStateOnly()
     {
         Debug.Log($"[GameManager] ResetGameStateOnly() CALLED - Current Role: {MyRole}");
@@ -197,6 +199,7 @@ public class GameManager : Singleton<GameManager>
         Debug.Log("[GameManager] ResetGameStateOnly() - Core systems reset complete");
     }
 
+    // Set the player's role and initialize a fresh game session
     void SetRole(string roleName)
     {
         Debug.Log($"[GameManager] SetRole called with: '{roleName}', current role: {MyRole}");
@@ -216,9 +219,7 @@ public class GameManager : Singleton<GameManager>
         UIManager.Instance.UpdateRoleText(MyRole);
     }
 
-    /// <summary>
-    /// Initialize a completely fresh game session
-    /// </summary>
+    // Initialize a completely fresh game session
     private void InitializeFreshGame()
     {
         Debug.Log("[GameManager] InitializeFreshGame() - Setting up fresh game state");
@@ -237,12 +238,14 @@ public class GameManager : Singleton<GameManager>
         Debug.Log("[GameManager] InitializeFreshGame() - Fresh game state ready");
     }
 
+    // Generate the hex grid when grid data is ready from server
     void OnGridReady()
     {
         gridGenerator.GenerateGrid();
     }
 
 
+    // Process resource map data from server and initialize game visuals
     void OnResourceMap(List<ResourceData> mapData)
     {
         var counts = new Dictionary<FieldType, int>();
@@ -274,6 +277,7 @@ public class GameManager : Singleton<GameManager>
         StartCoroutine(InitializeVisualsAfterDelay(resourceMap));
     }
 
+    // Wait for MainBindings setup then initialize game visuals and interaction
     private System.Collections.IEnumerator InitializeVisualsAfterDelay(Dictionary<Hex, FieldType> resourceMap)
     {
         // Wait a frame for MainBindings to complete setup
@@ -298,6 +302,7 @@ public class GameManager : Singleton<GameManager>
         interactionManager.EnableInteraction(MyRole);
     }
 
+    // Begin the King's planning turn and update UI state
     public void StartKingTurn()
     {
         if (IsGameOver) return;
@@ -323,6 +328,7 @@ public class GameManager : Singleton<GameManager>
         UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
 
+    // Begin the Bandit's planning turn and update UI state
     public void StartBanditTurn()
     {
         if (IsGameOver) return;
@@ -334,6 +340,7 @@ public class GameManager : Singleton<GameManager>
         UIManager.Instance.UpdateButtonVisibilityForTurn(CurrentTurn, MyRole);
     }
 
+    // Execute the planned actions for both players
     public void StartExecutionPhase(List<PathData> kingPaths, List<AmbushEdge> banditAmbushes)
     {
         CurrentTurn = GameTurn.Executing;
@@ -352,16 +359,19 @@ public class GameManager : Singleton<GameManager>
         }
     }
 
+    // Execute a single worker path through the interaction manager
     private void ExecuteWorkerPath(List<HexVertex> path)
     {
         interactionManager.ExecuteServerPath(path);
     }
 
+    // Execute multiple worker paths through the interaction manager
     private void ExecuteWorkerPaths(List<List<HexVertex>> paths)
     {
         interactionManager.ExecuteServerPaths(paths);
     }
 
+    // Get the current resource map for external access
     public Dictionary<Hex, FieldType> GetResourceMap()
     {
         return resourceMap;
