@@ -682,7 +682,16 @@ public class InteractionManager : Singleton<InteractionManager>
         UIManager.Instance.UpdateInfoText($"Path confirmed! Workers available: {GetAvailableWorkerCount()}");
         UIManager.Instance.UpdateWorkerText();
         UIManager.Instance.UpdateDoneButtonState();
+
+        UIManager.Instance.UpdateKingPathConfirmButtonText();
+
         currentPathIndex = -1;
+
+        if (CanCreateNewPath())
+        {
+            StartNewPath();
+            UIManager.Instance.UpdateInfoText($"Path confirmed! Select a resource field for path #{completedPaths.Count + 1}.");
+        }
     }
 
     private void VisualizeCompletedPath(int pathIndex, Color pathColor)
@@ -830,7 +839,7 @@ public class InteractionManager : Singleton<InteractionManager>
         switch (pathCreationState)
         {
             case PathCreationState.NotCreating:
-                if (GetAvailableWorkerCount() <= 0)
+                if (completedPaths.Count >= ownedWorkers)
                     return "No Workers";
                 return "Create Path";
             case PathCreationState.SelectingResourceField:
@@ -848,7 +857,8 @@ public class InteractionManager : Singleton<InteractionManager>
 
     public bool CanCreateNewPath()
     {
-        return pathCreationState == PathCreationState.NotCreating && GetAvailableWorkerCount() > 0;
+        bool hasAvailableWorkers = completedPaths.Count < ownedWorkers;
+        return pathCreationState == PathCreationState.NotCreating && hasAvailableWorkers;
     }
 
     public bool CanCreateNewPath(bool useWagonWorker)
@@ -857,11 +867,14 @@ public class InteractionManager : Singleton<InteractionManager>
 
         if (useWagonWorker)
         {
-            return GetAvailableWagonWorkerCount() > 0;
+            int wagonPaths = completedPathIsWagonWorker.Count(isWagon => isWagon);
+            return wagonPaths < ownedWagonWorkers;
         }
         else
         {
-            return GetAvailableRegularWorkerCount() > 0;
+            int regularPaths = completedPathIsWagonWorker.Count(isWagon => !isWagon);
+            int regularWorkers = ownedWorkers - ownedWagonWorkers;
+            return regularPaths < regularWorkers;
         }
     }
 
@@ -951,7 +964,17 @@ public class InteractionManager : Singleton<InteractionManager>
         ownedWorkers++;
         pendingWorkerPurchase = false; // Clear pending flag
         Debug.Log($"Worker purchase approved! Total workers: {ownedWorkers} - Pending cleared: {!pendingWorkerPurchase}");
-        UIManager.Instance.UpdateInfoText($"Worker purchased! You now have {ownedWorkers - usedWorkers} available workers.");
+
+        if (CanCreateNewPath())
+        {
+            StartNewPath();
+            UIManager.Instance.UpdateInfoText($"Worker purchased! Select a resource field to create path #{completedPaths.Count + 1}.");
+        }
+        else
+        {
+            UIManager.Instance.UpdateInfoText($"Worker purchased! You now have {ownedWorkers - usedWorkers} available workers.");
+        }
+
         UIManager.Instance.UpdateWorkerText();
     }
 

@@ -362,11 +362,7 @@ public class UIManager : Singleton<UIManager>
     {
         if (kingPathButton != null && kingPathButton.gameObject != null)
         {
-            kingPathButton.gameObject.SetActive(isActive);
-            if (isActive)
-            {
-                UpdateKingPathButtonText();
-            }
+            kingPathButton.gameObject.SetActive(false);
         }
         if (kingPathConfirmButton != null && kingPathConfirmButton.gameObject != null)
         {
@@ -520,7 +516,6 @@ public class UIManager : Singleton<UIManager>
         }
 
         UpdateKingWorkerBuyButtonText();
-        UpdateKingPathButtonText();
         UpdateKingWagonUpgradeButtonText();
         UpdateWorkerText();
     }
@@ -578,8 +573,6 @@ public class UIManager : Singleton<UIManager>
             Debug.LogError("❌ Error: Cannot create path in current state!");
         }
 
-        // Update button texts after state change
-        UpdateKingPathButtonText();
         UpdateKingPathConfirmButtonText();
         UpdateKingWorkerBuyButtonText();
         UpdateWorkerText();
@@ -598,8 +591,6 @@ public class UIManager : Singleton<UIManager>
             Debug.LogError("❌ Error: Cannot confirm path in current state!");
         }
 
-        // Update button texts after state change
-        UpdateKingPathButtonText();
         UpdateKingPathConfirmButtonText();
         UpdateKingWorkerBuyButtonText();
         UpdateWorkerText();
@@ -684,6 +675,12 @@ public class UIManager : Singleton<UIManager>
                     SetDoneButtonActive(true);
                     SetKingButtonsActive(true);
                     SetBanditButtonsActive(false);
+
+                    if (InteractionManager.Instance != null && InteractionManager.Instance.CanCreateNewPath())
+                    {
+                        InteractionManager.Instance.StartNewPath();
+                        UpdateInfoText($"King planning phase started! Select a resource field to create path #{InteractionManager.Instance.GetCompletedPathCount() + 1}.");
+                    }
                 }
                 else
                 {
