@@ -22,10 +22,7 @@ Es gibt mehrere Möglichkeiten, das Spiel zu starten und zu testen.
 
 ### Methode 1: Gebuildete Version starten
 
-Am einfachsten lässt sich das Spiel über die kompilierte `.exe`-Datei ausführen.
-
-1.  Öffnen Sie den Build-Ordner des Projekts.
-2.  Doppelklicken Sie auf die `The Path Gambit.exe`, um das Spiel zu starten.
+Am einfachsten lässt sich das Spiel über die kompilierte `.exe`-Datei ausführen, welche unter https://nextcloud.hs-flensburg.de/nextcloud/index.php/s/ZRGjjieeGE3JaGc zu finden ist.
 
 ### Methode 2: Direkt im Unity Editor starten
 
