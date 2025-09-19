@@ -307,24 +307,31 @@ public class UIManager : Singleton<UIManager>
         {
             if (GameManager.Instance.MyRole == PlayerRole.King)
             {
-                int availableWorkers = InteractionManager.Instance.GetAvailableWorkerCount();
-                int ownedWorkers = InteractionManager.Instance.GetPurchasedWorkerCount();
-                int availableWagonWorkers = InteractionManager.Instance.GetAvailableWagonWorkerCount();
-                int availableRegularWorkers = InteractionManager.Instance.GetAvailableRegularWorkerCount();
+                int availableForPlacement = InteractionManager.Instance.GetPurchasedWorkerCount() - InteractionManager.Instance.GetCompletedPathCount();
+                workerText.text = $"x{availableForPlacement}";
 
-                int totalRegularWorkers = InteractionManager.Instance.GetTotalOwnedRegularWorkers();
-                int totalWagonWorkers = InteractionManager.Instance.GetTotalOwnedWagonWorkers();
-
-                workerText.text = $"Workers:{availableRegularWorkers}/{totalRegularWorkers}\nWagons:{availableWagonWorkers}/{totalWagonWorkers}";
+                // Ensure the GameObject is active and visible
+                if (workerText.gameObject != null)
+                {
+                    workerText.gameObject.SetActive(true);
+                }
             }
             else
             {
                 workerText.text = "";
+                if (workerText.gameObject != null)
+                {
+                    workerText.gameObject.SetActive(false);
+                }
             }
         }
         else
         {
-            workerText.text = "Workers:\n0/0";
+            workerText.text = "x0";
+            if (workerText.gameObject != null)
+            {
+                workerText.gameObject.SetActive(true);
+            }
         }
     }
 
