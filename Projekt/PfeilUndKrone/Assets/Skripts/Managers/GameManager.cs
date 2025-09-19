@@ -10,6 +10,7 @@ public enum GameTurn { Setup, KingPlanning, BanditPlanning, Executing }
 
 public class GameManager : Singleton<GameManager>
 {
+    protected override bool Persistent => false; // Don't persist across scenes
 
     [SerializeField] NetworkServiceBase networkService;
 
@@ -241,7 +242,14 @@ public class GameManager : Singleton<GameManager>
     // Generate the hex grid when grid data is ready from server
     void OnGridReady()
     {
-        gridGenerator.GenerateGrid();
+        // Always get fresh reference in case singleton was recreated
+        if (gridGenerator == null)
+            gridGenerator = HexGridGenerator.Instance;
+
+        if (gridGenerator != null)
+            gridGenerator.GenerateGrid();
+        else
+            Debug.LogError("GridGenerator is null and HexGridGenerator.Instance is also null!");
     }
 
 
@@ -298,8 +306,15 @@ public class GameManager : Singleton<GameManager>
         if (visualsManager == null) visualsManager = GridVisualsManager.Instance;
         if (interactionManager == null) interactionManager = InteractionManager.Instance;
 
-        visualsManager.InitializeVisuals(resourceMap);
-        interactionManager.EnableInteraction(MyRole);
+        if (visualsManager != null)
+            visualsManager.InitializeVisuals(resourceMap);
+        else
+            Debug.LogError("VisualsManager is null!");
+
+        if (interactionManager != null)
+            interactionManager.EnableInteraction(MyRole);
+        else
+            Debug.LogError("InteractionManager is null!");
     }
 
     // Begin the King's planning turn and update UI state

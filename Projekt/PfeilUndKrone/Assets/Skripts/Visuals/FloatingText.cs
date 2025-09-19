@@ -18,7 +18,7 @@ public class FloatingText : MonoBehaviour
     void Awake()
     {
         textMesh = GetComponent<TextMeshProUGUI>();
-        textMesh.enableWordWrapping = false;
+        textMesh.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
         transform.localPosition = new Vector3(xOffset, yOffset, 0);
     }
 

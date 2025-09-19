@@ -17,6 +17,12 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
 
     private bool socketSetup = false;
 
+    // Store event handler references for proper cleanup
+    private WebSocketOpenEventHandler onOpenHandler;
+    private WebSocketErrorEventHandler onErrorHandler;
+    private WebSocketCloseEventHandler onCloseHandler;
+    private WebSocketMessageEventHandler onMessageHandler;
+
     public event Action<string> OnLobbyCreated;
     public event Action<LobbyJoinedPayload> OnLobbyJoined;
     public event Action<string> OnLobbyInfo;
@@ -36,7 +42,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     // Establish websocket connection to server with async task completion
     public override async Task Connect()
     {
-        Debug.Log("NM Connect() called");
+        Debug.Log($"NM Connect() called on instance {this.GetInstanceID()}");
         if (this.websocket == null)
         {
             Debug.Log("NM Connect(): websocket is null!");
@@ -84,6 +90,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
         {
             Debug.Log("NM Disconnect() await");
             this.socketSetup = false;
+            CleanupWebsocketHandlers();
             await this.websocket.Close();
         }
     }
@@ -131,14 +138,24 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
     // Configure websocket event handlers for connection, messages, and errors
     public void SetupWebsocket()
     {
-        this.socketSetup = true;
-        Debug.Log("SetupWebsocket called()!!!!");
-        if (this.websocket == null)
+        if (this.socketSetup)
         {
-            this.websocket = new WebSocket($"ws://{IP}:{PORT}");
+            Debug.LogWarning($"SetupWebsocket called but already setup! Instance {this.GetInstanceID()}");
+            return;
         }
 
-        this.websocket.OnOpen += () =>
+        this.socketSetup = true;
+        Debug.Log($"SetupWebsocket called on NetworkManager instance {this.GetInstanceID()}!");
+
+        // Clean up existing websocket and create fresh one
+        if (this.websocket != null)
+        {
+            CleanupWebsocketHandlers();
+        }
+        this.websocket = new WebSocket($"ws://{IP}:{PORT}");
+
+        // Create and store handler references
+        onOpenHandler = () =>
         {
             Debug.Log("✅ Connection to server opened!");
             // Signal that the connection task was successful
@@ -148,7 +165,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             }
         };
 
-        this.websocket.OnError += (e) =>
+        onErrorHandler = (e) =>
         {
             Debug.LogError("❌ Connection Error: " + e);
             // Signal that the connection task failed
@@ -158,9 +175,11 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             }
         };
 
-        this.websocket.OnClose += (e) =>
+        onCloseHandler = (e) =>
         {
             Debug.Log("❌ Connection closed: " + e);
+            // Reset setup flag so we can reconnect properly
+            this.socketSetup = false;
             // Signal that the connection task failed
             if (connectionTcs != null && !connectionTcs.Task.IsCompleted)
             {
@@ -168,9 +187,14 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
             }
         };
 
+        // Assign handlers to websocket
+        this.websocket.OnOpen += onOpenHandler;
+        this.websocket.OnError += onErrorHandler;
+        this.websocket.OnClose += onCloseHandler;
 
-        // This is where we handle messages from the server
-        this.websocket.OnMessage += (bytes) =>
+
+        // Create message handler
+        onMessageHandler = (bytes) =>
         {
             var messageString = System.Text.Encoding.UTF8.GetString(bytes);
 
@@ -318,7 +342,7 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                         break;
 
                     case "worker_approved":
-                        Debug.Log("Worker purchase approved by server!");
+                        Debug.Log($"Worker purchase approved by server! NetworkManager Instance: {this.GetInstanceID()}");
                         UIManager.Instance.UpdateInfoText("Worker purchased successfully!");
 
                         InteractionManager.Instance.OnWorkerPurchaseApproved();
@@ -555,6 +579,21 @@ public class NetworkManager : SingletonNetworkService<NetworkManager>
                 }
             });
         };
+
+        // Assign message handler to websocket
+        this.websocket.OnMessage += onMessageHandler;
+    }
+
+    // Clean up existing websocket event handlers
+    private void CleanupWebsocketHandlers()
+    {
+        if (this.websocket != null)
+        {
+            if (onOpenHandler != null) this.websocket.OnOpen -= onOpenHandler;
+            if (onErrorHandler != null) this.websocket.OnError -= onErrorHandler;
+            if (onCloseHandler != null) this.websocket.OnClose -= onCloseHandler;
+            if (onMessageHandler != null) this.websocket.OnMessage -= onMessageHandler;
+        }
     }
 
     // Send structured message to server with type and payload serialization

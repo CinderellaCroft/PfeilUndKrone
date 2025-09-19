@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 
 public class UIManager : Singleton<UIManager>
 {
+    protected override bool Persistent => false; // Don't persist across scenes
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI roleText;
     [SerializeField] private TextMeshProUGUI turnStatusText;
@@ -133,8 +134,6 @@ public class UIManager : Singleton<UIManager>
         }
     }
 
-    private bool listenersSetup = false;
-
     // Configure click event listeners for all interactive UI buttons
     private void SetupButtonListeners()
     {
@@ -183,7 +182,6 @@ public class UIManager : Singleton<UIManager>
             quitGameButton.onClick.AddListener(OnQuitGameButtonClicked);
         }
 
-        listenersSetup = true;
         Debug.Log("[UIManager] Button listeners setup complete");
     }
 
@@ -773,6 +771,9 @@ public class UIManager : Singleton<UIManager>
             _ = NetworkManager.Instance.Disconnect();
         }
 
+        // 3.5. Reset all persistent singleton states instead of destroying them
+        Debug.Log("[UIManager] Resetting all persistent singleton states...");
+
         // 4. Clear UI references (they'll be rebound when returning to main scene)
         Debug.Log("[UIManager] Clearing UI references...");
         roleText = null;
@@ -842,4 +843,5 @@ public class UIManager : Singleton<UIManager>
 
         Debug.Log("[UIManager] ResetForNewGame() - UI reset complete");
     }
+
 }

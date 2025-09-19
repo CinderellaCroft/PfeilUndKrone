@@ -15,6 +15,7 @@ public enum ResourceType { Wood, Wheat, Ore, Desert }
 
 public class GridVisualsManager : Singleton<GridVisualsManager>
 {
+    protected override bool Persistent => false; // Don't persist across scenes
     [Header("References")]
     public HexGridGenerator gridGenerator;
     public InteractionManager interactionManager;

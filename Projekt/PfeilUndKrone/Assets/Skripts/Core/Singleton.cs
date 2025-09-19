@@ -19,6 +19,7 @@ public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
 
         if (Instance != null && Instance != this)
         {
+            Debug.LogWarning($"[Singleton] Duplicate {typeof(T).Name} instance detected and destroyed! This indicates a scene setup issue.");
             Destroy(gameObject);
             return;
         }
@@ -29,6 +30,14 @@ public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
         {
             transform.parent = null;
             DontDestroyOnLoad(gameObject);
+        }
+    }
+
+    protected virtual void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 }

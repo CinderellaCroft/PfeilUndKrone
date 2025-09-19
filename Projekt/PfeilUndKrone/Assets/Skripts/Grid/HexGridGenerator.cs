@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class HexGridGenerator : Singleton<HexGridGenerator>
 {
+    protected override bool Persistent => false; // Don't persist across scenes
 
     [HideInInspector] public HexGridModel Model { get; private set; }
     public float hexRadius = 1f;

@@ -19,6 +19,7 @@ public abstract class SingletonNetworkService<TSelf> : NetworkServiceBase
 #endif
         if (Instance != null && Instance != this)
         {
+            Debug.LogWarning($"[SingletonNetworkService] Duplicate {typeof(TSelf).Name} instance detected and destroyed! This indicates a scene setup issue.");
             Destroy(gameObject);
             return;
         }
@@ -29,6 +30,14 @@ public abstract class SingletonNetworkService<TSelf> : NetworkServiceBase
         {
             transform.parent = null;
             DontDestroyOnLoad(gameObject);
+        }
+    }
+
+    protected virtual void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 }

@@ -106,14 +106,20 @@ namespace PimDeWitte.UnityMainThreadDispatcher {
 
 
 		void Awake() {
-			if (_instance == null) {
-				_instance = this;
-				DontDestroyOnLoad(this.gameObject);
+			if (_instance != null && _instance != this) {
+				Debug.LogWarning("[UnityMainThreadDispatcher] Duplicate instance detected and destroyed! This indicates a scene setup issue.");
+				Destroy(gameObject);
+				return;
 			}
+
+			_instance = this;
+			DontDestroyOnLoad(this.gameObject);
 		}
 
 		void OnDestroy() {
+			if (_instance == this) {
 				_instance = null;
+			}
 		}
 
 

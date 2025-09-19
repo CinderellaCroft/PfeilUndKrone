@@ -13,6 +13,7 @@ public enum PathCreationState { NotCreating, SelectingResourceField, SelectingSt
 
 public class InteractionManager : Singleton<InteractionManager>
 {
+    protected override bool Persistent => false; // Don't persist across scenes
     public HexGridGenerator gridGen;
     public NetworkServiceBase net;
 
@@ -73,8 +74,6 @@ public class InteractionManager : Singleton<InteractionManager>
     private List<Vector3> serverPathWorld = new();
     private int pathStep;
     private bool isMoving;
-
-    private HexVertex ambushStart;
     private List<NetworkingDTOs.AmbushEdge> placedAmbushes = new();
     private List<GameObject> ambushOrbObjects = new();
     private List<GameObject> animationAmbushOrbObjects = new();
@@ -2615,7 +2614,6 @@ public class InteractionManager : Singleton<InteractionManager>
         pathComplete = false;
         isMoving = false;
         workerObj?.SetActive(false);
-        ambushStart = default;
 
         // Clear stored vertex materials
         ClearStoredVertexMaterials();
@@ -2690,8 +2688,6 @@ public class InteractionManager : Singleton<InteractionManager>
         {
             workerObj.SetActive(false);
         }
-
-        ambushStart = default;
 
         // Clean up all worker objects
         foreach (var worker in workerObjects)
